@@ -1,0 +1,709 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { type User } from '@/lib/auth-store';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Car, History, Bell, MapPin, Calendar, Clock, Check, XCircle, 
+  Flag, Truck, Wrench, User as UserIcon, 
+  Navigation as NavigationIcon, RotateCcw 
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { WelcomeBanner } from '@/components/shared/welcome-banner';
+import { QuickActionsGrid } from '@/components/shared/quick-actions-grid';
+import { LoadingSpinner } from '@/components/shared/loading';
+import { MapVisualization } from '@/components/shared/map-visualization';
+
+interface DriverDashboardProps {
+  token: string;
+  user: User;
+  onViewChange: (view: string) => void;
+}
+
+export function DriverDashboard({ token, user, onViewChange }: DriverDashboardProps) {
+  const [pendingBookings, setPendingBookings] = useState<Array<Record<string, unknown>>>([]);
+  const [activeBooking, setActiveBooking] = useState<Record<string, unknown> | null>(null);
+  const [stats, setStats] = useState({ pendingBookings: 0, completedBookings: 0, todayBookings: 0 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [showLogBookModal, setShowLogBookModal] = useState(false);
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Record<string, unknown> | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [vehicles, setVehicles] = useState<Array<Record<string, unknown>>>([]);
+  const [logBookForm, setLogBookForm] = useState({
+    vehicleId: '',
+    type: 'WASHING',
+    description: '',
+    date: new Date().toISOString().split('T')[0],
+    cost: '',
+    odometer: '',
+  });
+  const { toast } = useToast();
+
+  const fetchData = async () => {
+    try {
+      const [bookingsData, statsData, vehiclesData] = await Promise.all([
+        api('/bookings', {}, token),
+        api('/stats', {}, token),
+        api('/vehicles', {}, token),
+      ]);
+      
+      const pending = bookingsData.bookings.filter((b: Record<string, unknown>) => b.status === 'PENDING');
+      const active = bookingsData.bookings.find((b: Record<string, unknown>) => 
+        ['APPROVED', 'DEPARTED', 'ARRIVED', 'RETURNING'].includes(b.status as string)
+      );
+      
+      setPendingBookings(pending);
+      setActiveBooking(active || null);
+      setStats(statsData);
+      setVehicles(vehiclesData.vehicles);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, [token]);
+
+  const handleBookingAction = async (bookingId: string, action: 'approve' | 'reject' | 'depart' | 'arrive' | 'returning' | 'complete') => {
+    if (action === 'approve') {
+      const booking = pendingBookings.find(b => b.id === bookingId);
+      if (booking) {
+        setSelectedBooking(booking);
+        const availableVehicles = vehicles.filter((v: Record<string, unknown>) => v.status === 'AVAILABLE');
+        if (availableVehicles.length > 0) {
+          setSelectedVehicleId(availableVehicles[0].id as string);
+        }
+        setShowAcceptModal(true);
+      }
+      return;
+    }
+    
+    if (action === 'reject') {
+      const booking = pendingBookings.find(b => b.id === bookingId);
+      if (booking) {
+        setSelectedBooking(booking);
+        setRejectionReason('');
+        setShowRejectModal(true);
+      }
+      return;
+    }
+
+    try {
+      const statusMap: Record<string, string> = {
+        depart: 'DEPARTED',
+        arrive: 'ARRIVED',
+        returning: 'RETURNING',
+        complete: 'COMPLETED',
+      };
+
+      await api(`/bookings/${bookingId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: statusMap[action] }),
+      }, token);
+
+      const actionMessages: Record<string, string> = {
+        depart: 'dimulai - sedang menuju lokasi penjemputan',
+        arrive: 'tiba di tujuan',
+        returning: 'sedang kembali',
+        complete: 'selesai',
+      };
+
+      toast({
+        title: 'Berhasil',
+        description: `Pesanan telah ${actionMessages[action]}`,
+      });
+
+      fetchData();
+    } catch (error) {
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAcceptBooking = async () => {
+    if (!selectedBooking || !selectedVehicleId) return;
+    
+    setIsSubmitting(true);
+    try {
+      await api(`/bookings/${selectedBooking.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ 
+          status: 'APPROVED',
+          vehicleId: selectedVehicleId,
+        }),
+      }, token);
+
+      toast({
+        title: 'Berhasil',
+        description: 'Pesanan telah disetujui dan kendaraan telah ditentukan',
+      });
+
+      setShowAcceptModal(false);
+      setSelectedBooking(null);
+      setSelectedVehicleId('');
+      fetchData();
+    } catch (error) {
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRejectBooking = async () => {
+    if (!selectedBooking || !rejectionReason.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      await api(`/bookings/${selectedBooking.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ 
+          status: 'CANCELLED',
+          rejectionReason: rejectionReason.trim(),
+        }),
+      }, token);
+
+      toast({
+        title: 'Berhasil',
+        description: 'Pesanan telah ditolak',
+      });
+
+      setShowRejectModal(false);
+      setSelectedBooking(null);
+      setRejectionReason('');
+      fetchData();
+    } catch (error) {
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleLogBookSubmit = async () => {
+    try {
+      await api('/logbooks', {
+        method: 'POST',
+        body: JSON.stringify(logBookForm),
+      }, token);
+
+      toast({
+        title: 'Berhasil',
+        description: 'LogBook telah dicatat',
+      });
+
+      setShowLogBookModal(false);
+      setLogBookForm({
+        vehicleId: '',
+        type: 'WASHING',
+        description: '',
+        date: new Date().toISOString().split('T')[0],
+        cost: '',
+        odometer: '',
+      });
+    } catch (error) {
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'APPROVED':
+        return { label: 'Siap Berangkat', color: 'bg-blue-500', step: 1 };
+      case 'DEPARTED':
+        return { label: 'Menuju Penjemputan', color: 'bg-cyan-500', step: 2 };
+      case 'ARRIVED':
+        return { label: 'Tiba di Tujuan', color: 'bg-orange-500', step: 3 };
+      case 'RETURNING':
+        return { label: 'Kembali', color: 'bg-purple-500', step: 4 };
+      case 'COMPLETED':
+        return { label: 'Selesai', color: 'bg-green-500', step: 5 };
+      default:
+        return { label: status, color: 'bg-slate-500', step: 0 };
+    }
+  };
+
+  const quickActions = [
+    { icon: Wrench, label: 'LogBook', color: 'bg-blue-500', action: () => setShowLogBookModal(true) },
+    { icon: History, label: 'Riwayat', color: 'bg-green-500', action: () => onViewChange('history') },
+    { icon: Truck, label: 'Kendaraan', color: 'bg-orange-500', action: () => {} },
+    { icon: UserIcon, label: 'Profil', color: 'bg-purple-500', action: () => onViewChange('account') },
+  ];
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <WelcomeBanner
+        name={`Halo, ${user.name}!`}
+        subtitle="Ada pesanan yang menunggu Anda"
+        stats={[
+          { value: stats.pendingBookings, label: 'Menunggu', color: 'text-yellow-400' },
+          { value: stats.todayBookings, label: 'Hari Ini' },
+          { value: stats.completedBookings, label: 'Selesai', color: 'text-green-400' },
+        ]}
+      />
+
+      <QuickActionsGrid actions={quickActions} />
+
+      {/* Active Trip with Map */}
+      {activeBooking && (
+        <div>
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <NavigationIcon className="h-5 w-5 text-orange-500" />
+            Perjalanan Aktif
+          </h3>
+          <Card className="border-orange-200">
+            <CardContent className="p-4 space-y-4">
+              <MapVisualization 
+                pickup={activeBooking.pickupCoords as { lat: number; lng: number; name: string } | null}
+                destination={activeBooking.destinationCoords as { lat: number; lng: number; name: string } | null}
+                currentStatus={activeBooking.status as string}
+              />
+
+              {/* Progress Steps */}
+              <div className="flex items-center justify-between px-2">
+                {['APPROVED', 'DEPARTED', 'ARRIVED', 'RETURNING', 'COMPLETED'].map((s, i) => {
+                  const statusInfo = getStatusInfo(s);
+                  const currentStep = getStatusInfo(activeBooking.status as string).step;
+                  const isActive = statusInfo.step <= currentStep;
+                  const isCurrent = s === activeBooking.status;
+                  
+                  return (
+                    <div key={s} className="flex flex-col items-center gap-1">
+                      <div className={cn(
+                        'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold',
+                        isActive ? statusInfo.color : 'bg-slate-200 text-slate-400',
+                        isCurrent && 'ring-2 ring-offset-2 ring-orange-400'
+                      )}>
+                        {i + 1}
+                      </div>
+                      <span className={cn('text-[9px] text-center', isActive ? 'text-slate-700' : 'text-slate-400')}>
+                        {s === 'APPROVED' ? 'Siap' : s === 'DEPARTED' ? 'Berangkat' : s === 'ARRIVED' ? 'Tiba' : s === 'RETURNING' ? 'Kembali' : 'Selesai'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Employee Info */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarFallback>
+                      {(activeBooking.employee as Record<string, unknown>).name?.toString().charAt(0).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{(activeBooking.employee as Record<string, unknown>).name as string}</p>
+                    <p className="text-sm text-muted-foreground">{(activeBooking.employee as Record<string, unknown>).phone as string}</p>
+                  </div>
+                </div>
+                <Badge className={getStatusInfo(activeBooking.status as string).color}>
+                  {getStatusInfo(activeBooking.status as string).label}
+                </Badge>
+              </div>
+
+              {/* Location Details */}
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2 p-2 bg-green-50 rounded-lg">
+                  <MapPin className="h-4 w-4 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-green-800">Titik Penjemputan</p>
+                    <p className="text-green-600">{activeBooking.pickupLocation as string}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-2 bg-red-50 rounded-lg">
+                  <Flag className="h-4 w-4 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-red-800">Tujuan</p>
+                    <p className="text-red-600">{activeBooking.destination as string}</p>
+                  </div>
+                </div>
+                {activeBooking.vehicle ? (
+                  <div className="flex items-center gap-2 text-muted-foreground p-2 bg-slate-50 rounded-lg">
+                    <Car className="h-4 w-4" />
+                    <span>{(activeBooking.vehicle as Record<string, unknown>).brand as string} - {(activeBooking.vehicle as Record<string, unknown>).plateNumber as string}</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Action Buttons based on status */}
+              <div className="space-y-2">
+                {activeBooking.status === 'APPROVED' && (
+                  <Button 
+                    className="w-full bg-cyan-600 hover:bg-cyan-700" 
+                    onClick={() => handleBookingAction(activeBooking.id as string, 'depart')}
+                  >
+                    <NavigationIcon className="h-4 w-4 mr-2" />
+                    Mulai Keberangkatan
+                  </Button>
+                )}
+                
+                {activeBooking.status === 'DEPARTED' && (
+                  <Button 
+                    className="w-full bg-orange-600 hover:bg-orange-700" 
+                    onClick={() => handleBookingAction(activeBooking.id as string, 'arrive')}
+                  >
+                    <Flag className="h-4 w-4 mr-2" />
+                    Konfirmasi Tiba di Tujuan
+                  </Button>
+                )}
+                
+                {activeBooking.status === 'ARRIVED' && (
+                  <Button 
+                    className="w-full bg-purple-600 hover:bg-purple-700" 
+                    onClick={() => handleBookingAction(activeBooking.id as string, 'returning')}
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Mulai Kembali
+                  </Button>
+                )}
+                
+                {activeBooking.status === 'RETURNING' && (
+                  <Button 
+                    className="w-full bg-green-600 hover:bg-green-700" 
+                    onClick={() => handleBookingAction(activeBooking.id as string, 'complete')}
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    Selesaikan Perjalanan
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Pending Bookings */}
+      <div>
+        <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <Bell className="h-5 w-5 text-yellow-500" />
+          Pesanan Masuk
+          {pendingBookings.length > 0 && (
+            <Badge className="bg-yellow-500 ml-2">{pendingBookings.length}</Badge>
+          )}
+        </h3>
+
+        {pendingBookings.length === 0 ? (
+          <div className="text-center py-8 bg-slate-50 rounded-xl">
+            <Bell className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+            <p className="text-muted-foreground">Tidak ada pesanan baru</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {pendingBookings.map((booking) => (
+              <Card key={booking.id as string} className="border-yellow-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarFallback>
+                          {(booking.employee as Record<string, unknown>).name?.toString().charAt(0).toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{(booking.employee as Record<string, unknown>).name as string}</p>
+                        <p className="text-sm text-muted-foreground">{(booking.employee as Record<string, unknown>).phone as string}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm mb-4">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-green-500" />
+                      <span>{booking.pickupLocation as string}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Flag className="h-4 w-4 text-red-500" />
+                      <span>{booking.destination as string}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(booking.bookingDate as string).toLocaleDateString('id-ID')}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        <span>{booking.bookingTime as string}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      onClick={() => handleBookingAction(booking.id as string, 'approve')}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Terima
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => handleBookingAction(booking.id as string, 'reject')}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Tolak
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* LogBook Modal */}
+      <Dialog open={showLogBookModal} onOpenChange={setShowLogBookModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Catat LogBook</DialogTitle>
+            <DialogDescription>
+              Catat aktivitas kendaraan
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Kendaraan</Label>
+              <Select 
+                value={logBookForm.vehicleId} 
+                onValueChange={(value) => setLogBookForm({ ...logBookForm, vehicleId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kendaraan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles.map((v) => (
+                    <SelectItem key={v.id as string} value={v.id as string}>
+                      {v.brand as string} - {v.plateNumber as string}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipe Aktivitas</Label>
+              <Select 
+                value={logBookForm.type} 
+                onValueChange={(value) => setLogBookForm({ ...logBookForm, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WASHING">Cuci Kendaraan</SelectItem>
+                  <SelectItem value="SERVICE">Service</SelectItem>
+                  <SelectItem value="FUEL">Isi Bensin</SelectItem>
+                  <SelectItem value="OTHER">Lainnya</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Deskripsi</Label>
+              <Textarea
+                placeholder="Deskripsi aktivitas..."
+                value={logBookForm.description}
+                onChange={(e) => setLogBookForm({ ...logBookForm, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tanggal</Label>
+                <Input
+                  type="date"
+                  value={logBookForm.date}
+                  onChange={(e) => setLogBookForm({ ...logBookForm, date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Biaya (Rp)</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={logBookForm.cost}
+                  onChange={(e) => setLogBookForm({ ...logBookForm, cost: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Odometer (km)</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={logBookForm.odometer}
+                onChange={(e) => setLogBookForm({ ...logBookForm, odometer: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLogBookModal(false)}>
+              Batal
+            </Button>
+            <Button 
+              onClick={handleLogBookSubmit}
+              disabled={!logBookForm.vehicleId || !logBookForm.description}
+            >
+              Simpan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Accept Booking Modal */}
+      <Dialog open={showAcceptModal} onOpenChange={setShowAcceptModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Terima Pesanan</DialogTitle>
+            <DialogDescription>
+              Pilih kendaraan yang akan digunakan untuk perjalanan ini
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedBooking && (
+              <div className="p-3 bg-slate-50 rounded-lg space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-green-500" />
+                  <span>{selectedBooking.pickupLocation as string}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Flag className="h-4 w-4 text-red-500" />
+                  <span>{selectedBooking.destination as string}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Pilih Kendaraan *</Label>
+              <Select 
+                value={selectedVehicleId} 
+                onValueChange={setSelectedVehicleId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kendaraan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehicles
+                    .filter((v: Record<string, unknown>) => v.status === 'AVAILABLE')
+                    .map((v: Record<string, unknown>) => (
+                      <SelectItem key={v.id as string} value={v.id as string}>
+                        {v.brand as string} {v.model as string} - {v.plateNumber as string}
+                      </SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+              {vehicles.filter((v: Record<string, unknown>) => v.status === 'AVAILABLE').length === 0 && (
+                <p className="text-sm text-muted-foreground">Tidak ada kendaraan tersedia</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAcceptModal(false)}>
+              Batal
+            </Button>
+            <Button 
+              onClick={handleAcceptBooking}
+              disabled={!selectedVehicleId || isSubmitting}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSubmitting ? 'Memproses...' : 'Konfirmasi Terima'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Booking Modal */}
+      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tolak Pesanan</DialogTitle>
+            <DialogDescription>
+              Berikan alasan mengapa Anda menolak pesanan ini
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedBooking && (
+              <div className="p-3 bg-slate-50 rounded-lg space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-green-500" />
+                  <span>{selectedBooking.pickupLocation as string}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Flag className="h-4 w-4 text-red-500" />
+                  <span>{selectedBooking.destination as string}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Alasan Penolakan *</Label>
+              <Textarea
+                placeholder="Contoh: Jadwal bentrok, kendaraan sedang dalam perbaikan, dll."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+              Batal
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleRejectBooking}
+              disabled={!rejectionReason.trim() || isSubmitting}
+            >
+              {isSubmitting ? 'Memproses...' : 'Konfirmasi Tolak'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

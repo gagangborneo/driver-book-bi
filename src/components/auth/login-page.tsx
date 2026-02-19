@@ -1,0 +1,151 @@
+'use client';
+
+import { useState } from 'react';
+import { type User } from '@/lib/auth-store';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Car, Users, UserCog, Building, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface LoginPageProps {
+  onLogin: (user: User, token: string) => void;
+}
+
+export function LoginPage({ onLogin }: LoginPageProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const data = await api('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      
+      onLogin(data.user, data.token);
+      toast({
+        title: 'Login Berhasil',
+        description: `Selamat datang, ${data.user.name}!`,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login gagal');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const demoAccounts = [
+    { email: 'admin@bi.go.id', role: 'Admin', icon: UserCog, color: 'text-red-600' },
+    { email: 'budi.santoso@bi.go.id', role: 'Karyawan', icon: Users, color: 'text-green-600' },
+    { email: 'driver.joko@bi.go.id', role: 'Driver', icon: Car, color: 'text-blue-600' },
+  ];
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="w-full max-w-md space-y-6">
+        {/* Logo */}
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <Building className="h-10 w-10 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Bank Indonesia</h1>
+          <p className="text-slate-400">Driver Booking System</p>
+        </div>
+
+        {/* Login Card */}
+        <Card className="border-0 shadow-2xl">
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl text-center">Masuk ke Akun</CardTitle>
+            <CardDescription className="text-center">
+              Masukkan email dan password Anda
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {error}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="email@bi.go.id"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-11"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="h-11"
+                />
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full h-11" 
+                disabled={isLoading}
+              >
+                {isLoading ? 'Memproses...' : 'Masuk'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Demo Accounts */}
+        <Card className="border-0 shadow-lg bg-slate-800/50 backdrop-blur">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-slate-300">Demo Accounts</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {demoAccounts.map((account) => (
+              <button
+                key={account.email}
+                onClick={() => {
+                  setEmail(account.email);
+                  setPassword('password123');
+                }}
+                className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/50 transition-colors text-left"
+              >
+                <account.icon className={cn('h-5 w-5', account.color)} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{account.email}</p>
+                  <p className="text-xs text-slate-400">{account.role}</p>
+                </div>
+                <Badge variant="outline" className="text-xs border-slate-600 text-slate-300">
+                  password123
+                </Badge>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
