@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 import { type User as UserType, type UserRole } from '@/lib/auth-store';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -12,41 +12,47 @@ import { cn } from '@/lib/utils';
 
 interface NavigationProps {
   role: UserRole;
-  currentView: string;
-  setCurrentView: (view: string) => void;
+  currentPath: string;
   onLogout: () => void;
   user: UserType;
 }
 
-export function Navigation({ role, currentView, setCurrentView, onLogout, user }: NavigationProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+export function Navigation({ role, currentPath, onLogout, user }: NavigationProps) {
+  const rolePrefix = role === 'ADMIN' ? '/admin' : role === 'DRIVER' ? '/driver' : '/employee';
 
   const getNavItems = () => {
     if (role === 'EMPLOYEE') {
       return [
-        { id: 'dashboard', label: 'Dashboard', icon: Home },
-        { id: 'history', label: 'Riwayat', icon: History },
-        { id: 'account', label: 'Akun', icon: UserIcon },
+        { href: '/employee', label: 'Dashboard', icon: Home },
+        { href: '/employee/history', label: 'Riwayat', icon: History },
+        { href: '/employee/account', label: 'Akun', icon: UserIcon },
       ];
     } else if (role === 'DRIVER') {
       return [
-        { id: 'dashboard', label: 'Dashboard', icon: Home },
-        { id: 'history', label: 'Riwayat', icon: History },
-        { id: 'account', label: 'Akun', icon: UserIcon },
+        { href: '/driver', label: 'Dashboard', icon: Home },
+        { href: '/driver/history', label: 'Riwayat', icon: History },
+        { href: '/driver/account', label: 'Akun', icon: UserIcon },
       ];
     } else {
       return [
-        { id: 'dashboard', label: 'Dashboard', icon: Home },
-        { id: 'users', label: 'Data User', icon: Users },
-        { id: 'vehicles', label: 'Kendaraan', icon: Car },
-        { id: 'bookings', label: 'Perjalanan', icon: FileText },
-        { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-        { id: 'account', label: 'Akun', icon: UserIcon },
+        { href: '/admin', label: 'Dashboard', icon: Home },
+        { href: '/admin/users', label: 'Data User', icon: Users },
+        { href: '/admin/vehicles', label: 'Kendaraan', icon: Car },
+        { href: '/admin/bookings', label: 'Perjalanan', icon: FileText },
+        { href: '/admin/leaderboard', label: 'Leaderboard', icon: Trophy },
+        { href: '/admin/account', label: 'Akun', icon: UserIcon },
       ];
     }
   };
 
   const navItems = getNavItems();
+
+  const isActive = (href: string) => {
+    if (href === rolePrefix) {
+      return currentPath === href;
+    }
+    return currentPath.startsWith(href);
+  };
 
   return (
     <>
@@ -60,14 +66,16 @@ export function Navigation({ role, currentView, setCurrentView, onLogout, user }
           <nav className="flex items-center gap-1">
             {navItems.map((item) => (
               <Button
-                key={item.id}
-                variant={currentView === item.id ? 'secondary' : 'ghost'}
+                key={item.href}
+                variant={isActive(item.href) ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => setCurrentView(item.id)}
                 className="gap-2"
+                asChild
               >
-                <item.icon className="h-4 w-4" />
-                {item.label}
+                <Link href={item.href}>
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
               </Button>
             ))}
           </nav>
@@ -108,19 +116,19 @@ export function Navigation({ role, currentView, setCurrentView, onLogout, user }
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t z-50 flex items-center justify-around px-2 safe-area-inset-bottom">
         {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setCurrentView(item.id)}
+          <Link
+            key={item.href}
+            href={item.href}
             className={cn(
               'flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] rounded-lg transition-colors',
-              currentView === item.id 
+              isActive(item.href) 
                 ? 'text-primary bg-primary/10' 
                 : 'text-muted-foreground'
             )}
           >
             <item.icon className="h-5 w-5" />
             <span className="text-[10px] font-medium">{item.label}</span>
-          </button>
+          </Link>
         ))}
         <button
           onClick={onLogout}
@@ -133,3 +141,4 @@ export function Navigation({ role, currentView, setCurrentView, onLogout, user }
     </>
   );
 }
+

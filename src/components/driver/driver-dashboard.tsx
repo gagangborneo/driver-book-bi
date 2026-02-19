@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { type User } from '@/lib/auth-store';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -27,10 +28,10 @@ import { MapVisualization } from '@/components/shared/map-visualization';
 interface DriverDashboardProps {
   token: string;
   user: User;
-  onViewChange: (view: string) => void;
 }
 
-export function DriverDashboard({ token, user, onViewChange }: DriverDashboardProps) {
+export function DriverDashboard({ token, user }: DriverDashboardProps) {
+  const router = useRouter();
   const [pendingBookings, setPendingBookings] = useState<Array<Record<string, unknown>>>([]);
   const [activeBooking, setActiveBooking] = useState<Record<string, unknown> | null>(null);
   const [stats, setStats] = useState({ pendingBookings: 0, completedBookings: 0, todayBookings: 0 });
@@ -257,9 +258,9 @@ export function DriverDashboard({ token, user, onViewChange }: DriverDashboardPr
 
   const quickActions = [
     { icon: Wrench, label: 'LogBook', color: 'bg-blue-500', action: () => setShowLogBookModal(true) },
-    { icon: History, label: 'Riwayat', color: 'bg-green-500', action: () => onViewChange('history') },
+    { icon: History, label: 'Riwayat', color: 'bg-green-500', action: () => router.push('/driver/history') },
     { icon: Truck, label: 'Kendaraan', color: 'bg-orange-500', action: () => {} },
-    { icon: UserIcon, label: 'Profil', color: 'bg-purple-500', action: () => onViewChange('account') },
+    { icon: UserIcon, label: 'Profil', color: 'bg-purple-500', action: () => router.push('/driver/account') },
   ];
 
   if (isLoading) {

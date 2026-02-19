@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { type User } from '@/lib/auth-store';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -22,10 +23,10 @@ import { LoadingSkeleton } from '@/components/shared/loading';
 interface EmployeeDashboardProps {
   token: string;
   user: User;
-  onViewChange: (view: string) => void;
 }
 
-export function EmployeeDashboard({ token, user, onViewChange }: EmployeeDashboardProps) {
+export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
+  const router = useRouter();
   const [drivers, setDrivers] = useState<Array<Record<string, unknown>>>([]);
   const [stats, setStats] = useState({ totalBookings: 0, pendingBookings: 0, completedBookings: 0, inProgressBookings: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -103,9 +104,9 @@ export function EmployeeDashboard({ token, user, onViewChange }: EmployeeDashboa
 
   const quickActions = [
     { icon: Car, label: 'Pesan Driver', color: 'bg-blue-500', action: () => {} },
-    { icon: History, label: 'Riwayat', color: 'bg-green-500', action: () => onViewChange('history') },
+    { icon: History, label: 'Riwayat', color: 'bg-green-500', action: () => router.push('/employee/history') },
     { icon: Bell, label: 'Notifikasi', color: 'bg-orange-500', action: () => {} },
-    { icon: UserIcon, label: 'Profil', color: 'bg-purple-500', action: () => onViewChange('account') },
+    { icon: UserIcon, label: 'Profil', color: 'bg-purple-500', action: () => router.push('/employee/account') },
   ];
 
   return (
