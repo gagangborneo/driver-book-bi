@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  EMPLOYEE
+  DRIVER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  DEPARTED
+  ARRIVED
+  RETURNING
+  COMPLETED
+  CANCELLED
+}
+
+enum LogBookType {
+  WASHING
+  SERVICE
+  FUEL
+  OTHER
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  role      UserRole @default(EMPLOYEE)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  bookingsAsEmployee Booking[]  @relation("EmployeeBookings")
+  bookingsAsDriver   Booking[]  @relation("DriverBookings")
+  logBooks           LogBook[]
+  vehicleAssignments Vehicle[]
+}
+
+model Vehicle {
+  id            String        @id @default(cuid())
+  plateNumber   String        @unique
+  brand         String
+  model         String
+  year          Int
+  color         String
+  status        VehicleStatus @default(AVAILABLE)
+  assignedToId  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  assignedTo User?     @relation(fields: [assignedToId], references: [id])
+  bookings   Booking[]
+  logBooks   LogBook[]
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  employeeId      String
+  driverId        String?
+  vehicleId       String?
+  pickupLocation  String
+  destination     String
+  bookingDate     DateTime
+  bookingTime     String
+  status          BookingStatus @default(PENDING)
+  startOdometer   Int?
+  endOdometer     Int?
+  startedAt       DateTime?
+  departedAt      DateTime?
+  arrivedAt       DateTime?
+  returningAt     DateTime?
+  completedAt     DateTime?
+  notes           String?
+  rejectionReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Location coordinates stored as JSON strings
+  pickupCoords    String?
+  destinationCoords String?
+  currentCoords   String?
+
+  // Relations
+  employee User     @relation("EmployeeBookings", fields: [employeeId], references: [id])
+  driver   User?    @relation("DriverBookings", fields: [driverId], references: [id])
+  vehicle  Vehicle? @relation(fields: [vehicleId], references: [id])
+}
+
+model LogBook {
+  id          String      @id @default(cuid())
+  driverId    String
+  vehicleId   String
+  type        LogBookType
+  description String
+  date        DateTime
+  cost        Float?
+  odometer    Int?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  driver  User    @relation(fields: [driverId], references: [id])
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+}
