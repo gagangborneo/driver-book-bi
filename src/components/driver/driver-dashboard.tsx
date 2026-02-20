@@ -43,6 +43,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Array<Record<string, unknown>>>([]);
   const [logBookForm, setLogBookForm] = useState({
     vehicleId: '',
@@ -109,6 +110,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
     }
 
     try {
+      setLoadingAction(action);
       const statusMap: Record<string, string> = {
         depart: 'DEPARTED',
         arrive: 'ARRIVED',
@@ -133,8 +135,12 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
         description: `Pesanan telah ${actionMessages[action]}`,
       });
 
+      // Refresh immediately after action
+      setLoadingAction(null);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UI feedback
       fetchData();
     } catch (error) {
+      setLoadingAction(null);
       toast({
         title: 'Gagal',
         description: error instanceof Error ? error.message : 'Terjadi kesalahan',
@@ -369,9 +375,19 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
                   <Button 
                     className="w-full bg-cyan-600 hover:bg-cyan-700" 
                     onClick={() => handleBookingAction(activeBooking.id as string, 'depart')}
+                    disabled={loadingAction === 'depart'}
                   >
-                    <NavigationIcon className="h-4 w-4 mr-2" />
-                    Mulai Keberangkatan
+                    {loadingAction === 'depart' ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <NavigationIcon className="h-4 w-4 mr-2" />
+                        Mulai Keberangkatan
+                      </>
+                    )}
                   </Button>
                 )}
                 
@@ -379,9 +395,19 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
                   <Button 
                     className="w-full bg-orange-600 hover:bg-orange-700" 
                     onClick={() => handleBookingAction(activeBooking.id as string, 'arrive')}
+                    disabled={loadingAction === 'arrive'}
                   >
-                    <Flag className="h-4 w-4 mr-2" />
-                    Konfirmasi Tiba di Tujuan
+                    {loadingAction === 'arrive' ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <Flag className="h-4 w-4 mr-2" />
+                        Konfirmasi Tiba di Tujuan
+                      </>
+                    )}
                   </Button>
                 )}
                 
@@ -389,9 +415,19 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
                   <Button 
                     className="w-full bg-purple-600 hover:bg-purple-700" 
                     onClick={() => handleBookingAction(activeBooking.id as string, 'returning')}
+                    disabled={loadingAction === 'returning'}
                   >
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Mulai Kembali
+                    {loadingAction === 'returning' ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Mulai Kembali
+                      </>
+                    )}
                   </Button>
                 )}
                 
@@ -399,9 +435,19 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
                   <Button 
                     className="w-full bg-green-600 hover:bg-green-700" 
                     onClick={() => handleBookingAction(activeBooking.id as string, 'complete')}
+                    disabled={loadingAction === 'complete'}
                   >
-                    <Check className="h-4 w-4 mr-2" />
-                    Selesaikan Perjalanan
+                    {loadingAction === 'complete' ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Memproses...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Selesaikan Perjalanan
+                      </>
+                    )}
                   </Button>
                 )}
               </div>

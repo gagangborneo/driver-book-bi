@@ -6,9 +6,10 @@ import { formatDate } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Car, MapPin, Flag, FileText, Droplets, Wrench, Fuel } from 'lucide-react';
+import { Car, MapPin, Flag, FileText, Droplets, Wrench, Fuel, Calendar, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LoadingSkeleton } from '@/components/shared/loading';
+import { TravelDetailModal } from '@/components/shared/travel-detail-modal';
 
 interface DriverHistoryProps {
   token: string;
@@ -19,23 +20,25 @@ export function DriverHistory({ token }: DriverHistoryProps) {
   const [logBooks, setLogBooks] = useState<Array<Record<string, unknown>>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'trips' | 'logbook'>('trips');
+  const [selectedBooking, setSelectedBooking] = useState<Record<string, unknown> | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const [bookingsData, logBooksData] = await Promise.all([
+        api('/bookings', {}, token),
+        api('/logbooks', {}, token),
+      ]);
+      setBookings(bookingsData.bookings);
+      setLogBooks(logBooksData.logBooks);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [bookingsData, logBooksData] = await Promise.all([
-          api('/bookings', {}, token),
-          api('/logbooks', {}, token),
-        ]);
-        setBookings(bookingsData.bookings);
-        setLogBooks(logBooksData.logBooks);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
   }, [token]);
 
@@ -110,7 +113,17 @@ export function DriverHistory({ token }: DriverHistoryProps) {
           <ScrollArea className="h-[calc(100vh-320px)]">
             <div className="space-y-3 pr-4">
               {bookings.map((booking) => (
-                <Card key={booking.id as string}>
+                <Card
+                  key={booking.id as string}
+                  className={cn(
+                    'cursor-pointer hover:shadow-md transition-shadow',
+                    (booking.status as string) === 'CANCELLED' && 'opacity-60'
+                  )}
+                  onClick={() => {
+                    setSelectedBooking(booking);
+                    setIsDetailModalOpen(true);
+                  }}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -126,8 +139,8 @@ export function DriverHistory({ token }: DriverHistoryProps) {
                       </div>
                       {getStatusBadge(booking.status as string)}
                     </div>
-                    
-                    <div className="space-y-2 text-sm">
+
+                    <div className="space-y-2 text-sm mb-3">
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <MapPin className="h-4 w-4 text-green-500" />
                         <span>{booking.pickupLocation as string}</span>
@@ -136,13 +149,21 @@ export function DriverHistory({ token }: DriverHistoryProps) {
                         <Flag className="h-4 w-4 text-red-500" />
                         <span>{booking.destination as string}</span>
                       </div>
+                      <div className="flex items-center gap-4 text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{formatDate(booking.bookingDate as string)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          <span>{booking.bookingTime as string}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    {(booking.startOdometer || booking.endOdometer) ? (
-                      <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
-                        Odometer: {String(booking.startOdometer ?? '-')} km → {String(booking.endOdometer ?? '-')} km
-                      </div>
-                    ) : null}
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      Klik untuk melihat detail
+                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -184,6 +205,16 @@ export function DriverHistory({ token }: DriverHistoryProps) {
           </ScrollArea>
         )
       )}
+
+      {/* Detail Modal */}
+      <TravelDetailModal 
+        booking={selectedBooking}
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        token={token}
+        onRatingSubmitted={fetchData}
+        showDriver={false}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { Car, MapPin, Flag, Calendar, Clock, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StatusBadgeBooking } from '@/components/shared/status-badges';
 import { LoadingSkeleton } from '@/components/shared/loading';
+import { TravelDetailModal } from '@/components/shared/travel-detail-modal';
 
 interface EmployeeHistoryProps {
   token: string;
@@ -20,6 +21,8 @@ export function EmployeeHistory({ token }: EmployeeHistoryProps) {
   const [bookings, setBookings] = useState<Array<Record<string, unknown>>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Record<string, unknown> | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchBookings = async () => {
@@ -80,9 +83,17 @@ export function EmployeeHistory({ token }: EmployeeHistoryProps) {
         <ScrollArea className="h-[calc(100vh-280px)]">
           <div className="space-y-3 pr-4">
             {bookings.map((booking) => (
-              <Card key={booking.id as string} className={cn(
-                (booking.status as string) === 'CANCELLED' && 'opacity-60'
-              )}>
+              <Card 
+                key={booking.id as string} 
+                className={cn(
+                  'cursor-pointer hover:shadow-md transition-shadow',
+                  (booking.status as string) === 'CANCELLED' && 'opacity-60'
+                )}
+                onClick={() => {
+                  setSelectedBooking(booking);
+                  setIsDetailModalOpen(true);
+                }}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -94,7 +105,9 @@ export function EmployeeHistory({ token }: EmployeeHistoryProps) {
                           {booking.driver ? (booking.driver as Record<string, unknown>).name as string : 'Menunggu Driver'}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {booking.vehicle ? `${(booking.vehicle as Record<string, unknown>).brand as string} - ${(booking.vehicle as Record<string, unknown>).plateNumber as string}` : '-'}
+                          {booking.vehicle 
+                            ? `${(booking.vehicle as Record<string, unknown>).brand as string} - ${(booking.vehicle as Record<string, unknown>).plateNumber as string}` 
+                            : '-'}
                         </p>
                       </div>
                     </div>
@@ -122,33 +135,53 @@ export function EmployeeHistory({ token }: EmployeeHistoryProps) {
                     </div>
                   </div>
 
-                  {(booking.status as string) === 'PENDING' && (
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      className="w-full"
-                      disabled={cancellingId === booking.id}
-                      onClick={() => handleCancelBooking(booking.id as string)}
-                    >
-                      {cancellingId === booking.id ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                          Membatalkan...
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Batalkan Pesanan
-                        </>
-                      )}
-                    </Button>
-                  )}
+                  <div className="flex gap-2">
+                    {(booking.status as string) === 'PENDING' && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="w-full"
+                        disabled={cancellingId === booking.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelBooking(booking.id as string);
+                        }}
+                      >
+                        {cancellingId === booking.id ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                            Membatalkan...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Batalkan Pesanan
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {(booking.status as string) !== 'PENDING' && (
+                      <p className="text-xs text-muted-foreground w-full text-center py-2">
+                        Klik untuk melihat detail
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         </ScrollArea>
       )}
+
+      {/* Detail Modal */}
+      <TravelDetailModal 
+        booking={selectedBooking}
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        token={token}
+        onRatingSubmitted={fetchBookings}
+        showDriver={true}
+      />
     </div>
   );
 }

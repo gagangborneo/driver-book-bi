@@ -145,6 +145,19 @@ export async function PUT(
       if (newStatus === BookingStatus.CANCELLED && currentBooking.status === BookingStatus.PENDING) {
         updateData.status = BookingStatus.CANCELLED;
       }
+      // Employee can add rating to completed bookings
+      if (data.rating && currentBooking.status === BookingStatus.COMPLETED) {
+        updateData.rating = data.rating;
+        if (data.ratingComment) {
+          updateData.ratingComment = data.ratingComment;
+        }
+      } else if (data.rating && currentBooking.status !== BookingStatus.COMPLETED) {
+        return NextResponse.json({ 
+          error: `Perjalanan belum selesai. Status saat ini: ${currentBooking.status}` 
+        }, { status: 400 });
+      }
+    } else if (currentUser.role === 'EMPLOYEE' && currentBooking.employeeId !== currentUserId) {
+      return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengubah pesanan ini' }, { status: 403 });
     }
 
     // Admin can update anything
@@ -164,15 +177,14 @@ export async function PUT(
       if (data.returningAt) updateData.returningAt = new Date(data.returningAt);
       if (data.completedAt) updateData.completedAt = new Date(data.completedAt);
       if (data.rejectionReason) updateData.rejectionReason = data.rejectionReason;
+      if (data.rating) updateData.rating = data.rating;
+      if (data.ratingComment) updateData.ratingComment = data.ratingComment;
     }
 
     // If no updates were made, return error
     if (Object.keys(updateData).length === 0) {
-      // Check if this is a permission issue
+      // Check if this is a permission issue or just invalid request
       if (currentUser.role === 'DRIVER' && currentBooking.driverId !== currentUserId) {
-        return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengubah pesanan ini' }, { status: 403 });
-      }
-      if (currentUser.role === 'EMPLOYEE' && currentBooking.employeeId !== currentUserId) {
         return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengubah pesanan ini' }, { status: 403 });
       }
       return NextResponse.json({ error: 'Tidak ada perubahan yang dilakukan' }, { status: 400 });

@@ -27,12 +27,16 @@ export function MapVisualization({ pickup, destination, currentStatus }: MapVisu
     if (!pickupPos || !destPos) return null;
     
     switch (currentStatus) {
+      case 'APPROVED':
+        return pickupPos;
       case 'DEPARTED':
         return { x: pickupPos.x + (destPos.x - pickupPos.x) * 0.25, y: pickupPos.y + (destPos.y - pickupPos.y) * 0.25 };
       case 'ARRIVED':
         return destPos;
       case 'RETURNING':
         return { x: destPos.x + (pickupPos.x - destPos.x) * 0.5, y: destPos.y + (pickupPos.y - destPos.y) * 0.5 };
+      case 'COMPLETED':
+        return pickupPos;
       default:
         return pickupPos;
     }
@@ -110,8 +114,11 @@ export function MapVisualization({ pickup, destination, currentStatus }: MapVisu
           <div className="relative animate-pulse">
             <div className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center shadow-lg",
-              currentStatus === 'ARRIVED' ? 'bg-red-500' : 
-              currentStatus === 'RETURNING' ? 'bg-purple-500' : 'bg-blue-500'
+              currentStatus === 'APPROVED' ? 'bg-blue-500' :
+              currentStatus === 'DEPARTED' ? 'bg-indigo-500' :
+              currentStatus === 'ARRIVED' ? 'bg-purple-500' : 
+              currentStatus === 'RETURNING' ? 'bg-orange-500' :
+              currentStatus === 'COMPLETED' ? 'bg-green-500' : 'bg-blue-500'
             )}>
               <Car className="h-5 w-5 text-white" />
             </div>

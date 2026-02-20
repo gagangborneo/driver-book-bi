@@ -7,12 +7,16 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Car, History, Bell, User as UserIcon } from 'lucide-react';
+import { Car, History, Bell, User as UserIcon, Navigation as NavigationIcon } from 'lucide-react';
 import { WelcomeBanner } from '@/components/shared/welcome-banner';
 import { QuickActionsGrid } from '@/components/shared/quick-actions-grid';
+import { TravelDetailCard } from '@/components/shared/travel-detail-card';
+import { TripRating } from '@/components/shared/trip-rating';
+import { MapVisualization } from '@/components/shared/map-visualization';
 
 interface EmployeeDashboardProps {
   token: string;
@@ -22,6 +26,7 @@ interface EmployeeDashboardProps {
 export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
   const router = useRouter();
   const [stats, setStats] = useState({ totalBookings: 0, pendingBookings: 0, completedBookings: 0, inProgressBookings: 0 });
+  const [activeBooking, setActiveBooking] = useState<Record<string, unknown> | null>(null);
   const [bookingForm, setBookingForm] = useState({
     pickupLocation: '',
     destination: '',
@@ -41,17 +46,28 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const statsData = await api('/stats', {}, token);
-        setStats(statsData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      const [statsData, bookingsData] = await Promise.all([
+        api('/stats', {}, token),
+        api('/bookings', {}, token),
+      ]);
+      setStats(statsData);
+      
+      // Get active booking
+      const active = bookingsData.bookings.find((b: Record<string, unknown>) => 
+        ['APPROVED', 'DEPARTED', 'ARRIVED', 'RETURNING', 'COMPLETED'].includes(b.status as string)
+      );
+      setActiveBooking(active || null);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
   }, [token]);
 
   const handleBooking = async () => {
@@ -76,8 +92,7 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
         notes: '',
       });
       
-      const statsData = await api('/stats', {}, token);
-      setStats(statsData);
+      await fetchData();
     } catch (error) {
       toast({
         title: 'Gagal',
@@ -109,6 +124,46 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
       />
 
       <QuickActionsGrid actions={quickActions} />
+
+      {/* Active Trip with Map */}
+      {activeBooking && (
+        <div>
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <NavigationIcon className="h-5 w-5 text-orange-500" />
+            Perjalanan Anda
+          </h3>
+          
+          <div className="space-y-3">
+            {/* Map Visualization */}
+            {(activeBooking.status as string) !== 'PENDING' && (
+              <Card className="border-orange-200">
+                <CardContent className="p-4">
+                  <MapVisualization 
+                    pickup={activeBooking.pickupCoords as { lat: number; lng: number; name: string } | null}
+                    destination={activeBooking.destinationCoords as { lat: number; lng: number; name: string } | null}
+                    currentStatus={activeBooking.status as string}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Travel Detail Card */}
+            <TravelDetailCard 
+              booking={activeBooking}
+              showDriver={true}
+            />
+
+            {/* Rating Form for Completed Trip */}
+            {(activeBooking.status as string) === 'COMPLETED' && !activeBooking.rating && (
+              <TripRating 
+                bookingId={activeBooking.id as string}
+                token={token}
+                onRatingSubmitted={fetchData}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Booking Modal */}
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>

@@ -96,6 +96,8 @@ model Booking {
   completedAt     DateTime?
   notes           String?
   rejectionReason String?
+  rating          Int?
+  ratingComment   String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

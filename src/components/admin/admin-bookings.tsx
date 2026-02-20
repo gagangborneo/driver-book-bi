@@ -9,7 +9,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Car, MapPin, Flag, Calendar, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { LoadingSkeleton } from '@/components/shared/loading';
+import { TravelDetailModal } from '@/components/shared/travel-detail-modal';
 
 interface AdminBookingsProps {
   token: string;
@@ -19,6 +21,8 @@ export function AdminBookings({ token }: AdminBookingsProps) {
   const [bookings, setBookings] = useState<Array<Record<string, unknown>>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [selectedBooking, setSelectedBooking] = useState<Record<string, unknown> | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   useEffect(() => {
     fetchBookings();
@@ -85,7 +89,14 @@ export function AdminBookings({ token }: AdminBookingsProps) {
         <ScrollArea className="h-[calc(100vh-320px)]">
           <div className="space-y-3 pr-4">
             {bookings.map((booking) => (
-              <Card key={booking.id as string}>
+              <Card 
+                key={booking.id as string}
+                className={cn('cursor-pointer transition-shadow', 'hover:shadow-md')}
+                onClick={() => {
+                  setSelectedBooking(booking);
+                  setIsDetailModalOpen(true);
+                }}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -137,6 +148,15 @@ export function AdminBookings({ token }: AdminBookingsProps) {
           </div>
         </ScrollArea>
       )}
+
+      <TravelDetailModal 
+        booking={selectedBooking}
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        token={token}
+        onRatingSubmitted={fetchBookings}
+        showDriver={true}
+      />
     </div>
   );
 }
