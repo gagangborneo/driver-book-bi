@@ -56,7 +56,7 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
       
       // Get active booking
       const active = bookingsData.bookings.find((b: Record<string, unknown>) => 
-        ['APPROVED', 'DEPARTED', 'ARRIVED', 'RETURNING', 'COMPLETED'].includes(b.status as string)
+        ['APPROVED', 'DEPARTED', 'ARRIVED', 'RETURNING'].includes(b.status as string)
       );
       setActiveBooking(active || null);
     } catch (error) {
