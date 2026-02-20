@@ -76,11 +76,28 @@ export async function PUT(
     const data = await request.json();
     const updateData: Record<string, unknown> = {};
 
+    // If password change is requested, verify current password first
+    if (data.password) {
+      if (!data.currentPassword) {
+        return NextResponse.json({ error: 'Password saat ini diperlukan untuk mengubah password' }, { status: 400 });
+      }
+
+      const isPasswordValid = await bcrypt.compare(data.currentPassword, existingUser.password);
+      if (!isPasswordValid) {
+        return NextResponse.json({ error: 'Password saat ini tidak sesuai' }, { status: 400 });
+      }
+
+      if (data.password.length < 6) {
+        return NextResponse.json({ error: 'Password harus minimal 6 karakter' }, { status: 400 });
+      }
+
+      updateData.password = await bcrypt.hash(data.password, 10);
+    }
+
     if (data.name) updateData.name = data.name;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     if (data.role && currentUser?.role === UserRole.ADMIN) updateData.role = data.role;
-    if (data.password) updateData.password = await bcrypt.hash(data.password, 10);
 
     const updatedUser = await db.user.update({
       where: { id },

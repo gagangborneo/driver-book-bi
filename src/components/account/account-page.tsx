@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { User as UserIcon, Mail, Phone, UserCog, LogOut } from 'lucide-react';
+import { ChangePassword } from '@/components/account/change-password';
 
 interface AccountPageProps {
   token: string;
@@ -144,6 +145,9 @@ export function AccountPage({ token, user, onUserUpdate }: AccountPageProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Change Password Card */}
+      <ChangePassword userId={user.id} token={token} />
 
       {/* Logout Card */}
       <Card className="border-red-200">
