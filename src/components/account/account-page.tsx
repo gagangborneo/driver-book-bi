@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { type User } from '@/lib/auth-store';
+import { useRouter } from 'next/navigation';
+import { type User, useAuthStore } from '@/lib/auth-store';
 import { api } from '@/lib/api';
 import { getRoleName } from '@/lib/format';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { User as UserIcon, Mail, Phone, UserCog } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, UserCog, LogOut } from 'lucide-react';
 
 interface AccountPageProps {
   token: string;
@@ -20,6 +21,8 @@ interface AccountPageProps {
 }
 
 export function AccountPage({ token, user, onUserUpdate }: AccountPageProps) {
+  const router = useRouter();
+  const { logout } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user.name,
@@ -139,6 +142,27 @@ export function AccountPage({ token, user, onUserUpdate }: AccountPageProps) {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Logout Card */}
+      <Card className="border-red-200">
+        <CardContent className="p-4">
+          <button
+            onClick={() => {
+              logout();
+              router.replace('/login');
+            }}
+            className="flex items-center gap-3 w-full text-left"
+          >
+            <div className="p-2 rounded-lg bg-red-50">
+              <LogOut className="h-5 w-5 text-red-500" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-red-600">Keluar</p>
+              <p className="text-xs text-muted-foreground">Logout dari akun Anda</p>
+            </div>
+          </button>
         </CardContent>
       </Card>
     </div>

@@ -19,7 +19,7 @@ export function QuickActionsGrid({ title = 'Menu Cepat', actions }: QuickActions
   return (
     <div>
       <h3 className="font-semibold mb-4">{title}</h3>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {actions.map((action, index) => (
           <button
             key={index}

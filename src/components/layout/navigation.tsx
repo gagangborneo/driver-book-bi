@@ -8,6 +8,8 @@ import {
   Car, Users, LogOut, Home, History, User as UserIcon,  
   FileText, Trophy, Building 
 } from 'lucide-react';
+
+// LogOut is kept for desktop nav usage
 import { cn } from '@/lib/utils';
 
 interface NavigationProps {
@@ -114,29 +116,22 @@ export function Navigation({ role, currentPath, onLogout, user }: NavigationProp
       </header>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t z-50 flex items-center justify-around px-2 safe-area-inset-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-lg border-t border-slate-200 z-50 flex items-center justify-around px-2 safe-area-inset-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] rounded-lg transition-colors',
+              'flex flex-col items-center justify-center gap-1 py-2 px-3 min-w-[64px] rounded-xl transition-all',
               isActive(item.href) 
-                ? 'text-primary bg-primary/10' 
-                : 'text-muted-foreground'
+                ? 'text-white bg-gradient-to-b from-blue-500 to-blue-600 shadow-md shadow-blue-500/30 scale-105' 
+                : 'text-slate-400 hover:text-slate-600 active:scale-95'
             )}
           >
-            <item.icon className="h-5 w-5" />
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <item.icon className={cn('h-5 w-5', isActive(item.href) && 'drop-shadow-sm')} />
+            <span className={cn('text-[10px] font-semibold', isActive(item.href) ? 'text-white' : '')}>{item.label}</span>
           </Link>
         ))}
-        <button
-          onClick={onLogout}
-          className="flex flex-col items-center justify-center gap-1 p-2 min-w-[60px] rounded-lg text-muted-foreground"
-        >
-          <LogOut className="h-5 w-5" />
-          <span className="text-[10px] font-medium">Keluar</span>
-        </button>
       </nav>
     </>
   );

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { BookingStatus } from '@prisma/client';
+import { BookingStatus, VehicleStatus } from '@prisma/client';
 
 function getUserIdFromToken(authHeader: string | null): string | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
@@ -110,19 +110,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { driverId, pickupLocation, destination, bookingDate, bookingTime, notes } = await request.json();
+    const { pickupLocation, destination, bookingDate, bookingTime, notes } = await request.json();
 
-    if (!driverId || !pickupLocation || !destination || !bookingDate || !bookingTime) {
+    if (!pickupLocation || !destination || !bookingDate || !bookingTime) {
       return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 });
     }
 
-    const driver = await db.user.findUnique({ where: { id: driverId } });
-    if (!driver) {
-      return NextResponse.json({ error: 'Driver tidak ditemukan' }, { status: 404 });
+    // Find all drivers and pick a random available one
+    const activeStatuses: BookingStatus[] = [
+      BookingStatus.PENDING,
+      BookingStatus.APPROVED,
+      BookingStatus.DEPARTED,
+      BookingStatus.ARRIVED,
+      BookingStatus.RETURNING,
+    ];
+
+    const allDrivers = await db.user.findMany({
+      where: { role: 'DRIVER', isActive: true },
+      include: {
+        vehicleAssignments: true,
+        bookingsAsDriver: {
+          where: { status: { in: activeStatuses } },
+        },
+      },
+    });
+
+    const availableDrivers = allDrivers.filter((driver) => {
+      const hasActiveOrPending = driver.bookingsAsDriver.length > 0;
+      const vehicleInMaintenance = driver.vehicleAssignments.some(
+        (v) => v.status === VehicleStatus.MAINTENANCE
+      );
+      return !hasActiveOrPending && !vehicleInMaintenance;
+    });
+
+    if (availableDrivers.length === 0) {
+      return NextResponse.json({ error: 'Semua driver sedang beroperasi saat ini. Silakan tunggu beberapa menit lagi dan coba kembali.' }, { status: 400 });
     }
 
+    // Pick a random available driver
+    const randomDriver = availableDrivers[Math.floor(Math.random() * availableDrivers.length)];
+
     const assignedVehicle = await db.vehicle.findFirst({
-      where: { assignedToId: driverId },
+      where: { assignedToId: randomDriver.id },
     });
 
     // Find coordinates for pickup and destination
@@ -132,7 +161,7 @@ export async function POST(request: NextRequest) {
     const newBooking = await db.booking.create({
       data: {
         employeeId: userId,
-        driverId,
+        driverId: randomDriver.id,
         vehicleId: assignedVehicle?.id || null,
         pickupLocation,
         destination,
