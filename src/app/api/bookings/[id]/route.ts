@@ -113,20 +113,40 @@ export async function PUT(
             if (data.startOdometer) {
               updateData.startOdometer = data.startOdometer;
             }
+            if (data.currentCoords) {
+              updateData.currentCoords = typeof data.currentCoords === 'string' 
+                ? data.currentCoords 
+                : JSON.stringify(data.currentCoords);
+            }
             break;
           case BookingStatus.ARRIVED:
             updateData.status = BookingStatus.ARRIVED;
             updateData.arrivedAt = new Date();
+            if (data.currentCoords) {
+              updateData.currentCoords = typeof data.currentCoords === 'string' 
+                ? data.currentCoords 
+                : JSON.stringify(data.currentCoords);
+            }
             break;
           case BookingStatus.RETURNING:
             updateData.status = BookingStatus.RETURNING;
             updateData.returningAt = new Date();
+            if (data.currentCoords) {
+              updateData.currentCoords = typeof data.currentCoords === 'string' 
+                ? data.currentCoords 
+                : JSON.stringify(data.currentCoords);
+            }
             break;
           case BookingStatus.COMPLETED:
             updateData.status = BookingStatus.COMPLETED;
             updateData.completedAt = new Date();
             if (data.endOdometer) {
               updateData.endOdometer = data.endOdometer;
+            }
+            if (data.currentCoords) {
+              updateData.currentCoords = typeof data.currentCoords === 'string' 
+                ? data.currentCoords 
+                : JSON.stringify(data.currentCoords);
             }
             // Set vehicle back to AVAILABLE
             if (currentBooking.vehicleId) {

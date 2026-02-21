@@ -141,6 +141,38 @@ async function main() {
 
   console.log(`Created ${vehicles.length} vehicles`);
 
+  // Create bookings without GPS coordinates
+  const bookings = await Promise.all([
+    prisma.booking.create({
+      data: {
+        employeeId: users[1].id, // Budi Santoso
+        driverId: users[4].id, // Joko Susanto
+        vehicleId: vehicles[0].id,
+        pickupLocation: 'Kantor Pusat BI, Jl. MH Thamrin',
+        destination: 'Gedung Perwakilan BI, Jl. Sudirman',
+        bookingDate: new Date(),
+        bookingTime: '09:00',
+        status: 'APPROVED',
+        notes: 'Pengiriman dokumen penting',
+      },
+    }),
+    prisma.booking.create({
+      data: {
+        employeeId: users[2].id, // Siti Rahayu
+        driverId: users[5].id, // Dedi Kurniawan
+        vehicleId: vehicles[1].id,
+        pickupLocation: 'Hotel Mandarin Oriental, Jl. Gajah Mada',
+        destination: 'Grand Indonesia, Jl. MH Thamrin',
+        bookingDate: new Date(),
+        bookingTime: '14:00',
+        status: 'PENDING',
+        notes: 'Jangan terlambat',
+      },
+    }),
+  ]);
+
+  console.log(`Created ${bookings.length} bookings`);
+
   console.log('Seeding completed!');
 }
 

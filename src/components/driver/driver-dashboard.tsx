@@ -23,7 +23,8 @@ import { cn } from '@/lib/utils';
 import { WelcomeBanner } from '@/components/shared/welcome-banner';
 import { QuickActionsGrid } from '@/components/shared/quick-actions-grid';
 import { LoadingSpinner } from '@/components/shared/loading';
-import { MapVisualization } from '@/components/shared/map-visualization';
+import { GPSMap } from '@/components/shared/gps-map';
+import { GPSPermissionDialog } from '@/components/shared/gps-permission-dialog';
 
 interface DriverDashboardProps {
   token: string;
@@ -31,6 +32,7 @@ interface DriverDashboardProps {
 }
 
 export function DriverDashboard({ token, user }: DriverDashboardProps) {
+  const GPS_PERMISSION_KEY = 'gpsPermissionGranted';
   const router = useRouter();
   const [pendingBookings, setPendingBookings] = useState<Array<Record<string, unknown>>>([]);
   const [activeBooking, setActiveBooking] = useState<Record<string, unknown> | null>(null);
@@ -39,6 +41,9 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
   const [showLogBookModal, setShowLogBookModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showGPSPermissionDialog, setShowGPSPermissionDialog] = useState(false);
+  const [gpsAction, setGPSAction] = useState<'depart' | 'arrive' | 'returning' | 'complete' | null>(null);
+  const [isRequestingGPS, setIsRequestingGPS] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Record<string, unknown> | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -85,6 +90,147 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
     return () => clearInterval(interval);
   }, [token]);
 
+  const normalizeCoords = (value: unknown) => {
+    if (!value) return null;
+    const raw = (() => {
+      if (typeof value === 'object') return value as Record<string, unknown>;
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    })();
+
+    if (!raw) return null;
+    const lat = raw.lat ?? raw.latitude;
+    const lng = raw.lng ?? raw.longitude;
+    if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+    return { lat, lng };
+  };
+
+  const isGpsPermissionGranted = async () => {
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem(GPS_PERMISSION_KEY) === 'true';
+    if (!('permissions' in navigator)) return stored;
+    try {
+      const status = await navigator.permissions.query({
+        name: 'geolocation' as PermissionName,
+      });
+      if (status.state === 'granted') {
+        localStorage.setItem(GPS_PERMISSION_KEY, 'true');
+        return true;
+      }
+      return stored;
+    } catch {
+      return stored;
+    }
+  };
+
+  const runGpsAction = async (action: 'depart' | 'arrive' | 'returning' | 'complete') => {
+    if (!activeBooking) return;
+
+    setIsRequestingGPS(true);
+    try {
+      const statusMap: Record<string, string> = {
+        depart: 'DEPARTED',
+        arrive: 'ARRIVED',
+        returning: 'RETURNING',
+        complete: 'COMPLETED',
+      };
+
+      // Record GPS location when updating status
+      let gpsData: Record<string, unknown> = { status: statusMap[action] };
+      
+      // Get current location using geolocation API
+      if ('geolocation' in navigator) {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            });
+          });
+
+          const { latitude, longitude, accuracy } = position.coords;
+
+          // Save GPS waypoint
+          await api('/gps', {
+            method: 'POST',
+            body: JSON.stringify({
+              bookingId: activeBooking.id,
+              latitude,
+              longitude,
+              accuracy,
+            }),
+          }, token);
+
+          // Also save in booking update
+          gpsData.currentCoords = {
+            latitude,
+            longitude,
+            timestamp: new Date().toISOString(),
+          };
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(GPS_PERMISSION_KEY, 'true');
+          }
+
+          toast({
+            title: 'Lokasi Terekam',
+            description: 'Koordinat GPS berhasil disimpan',
+          });
+        } catch (gpsError) {
+          console.warn('Could not get GPS location:', gpsError);
+          toast({
+            title: 'Peringatan',
+            description: 'GPS tidak dapat diakses, namun status tetap akan diupdate',
+            variant: 'default',
+          });
+          // Continue with status update even if GPS fails
+        }
+      }
+
+      // Update booking status
+      setLoadingAction(action);
+      await api(`/bookings/${activeBooking.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(gpsData),
+      }, token);
+
+      const actionMessages: Record<string, string> = {
+        depart: 'dimulai - sedang menuju lokasi penjemputan',
+        arrive: 'tiba di tujuan',
+        returning: 'sedang kembali',
+        complete: 'selesai',
+      };
+
+      toast({
+        title: 'Berhasil',
+        description: `Pesanan telah ${actionMessages[action]}`,
+      });
+
+      // Close dialog and refresh
+      setShowGPSPermissionDialog(false);
+      setGPSAction(null);
+      setIsRequestingGPS(false);
+      setLoadingAction(null);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      fetchData();
+    } catch (error) {
+      setLoadingAction(null);
+      setIsRequestingGPS(false);
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleBookingAction = async (bookingId: string, action: 'approve' | 'reject' | 'depart' | 'arrive' | 'returning' | 'complete') => {
     if (action === 'approve') {
       const booking = pendingBookings.find(b => b.id === bookingId);
@@ -109,44 +255,33 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
       return;
     }
 
-    try {
-      setLoadingAction(action);
-      const statusMap: Record<string, string> = {
-        depart: 'DEPARTED',
-        arrive: 'ARRIVED',
-        returning: 'RETURNING',
-        complete: 'COMPLETED',
-      };
-
-      await api(`/bookings/${bookingId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: statusMap[action] }),
-      }, token);
-
-      const actionMessages: Record<string, string> = {
-        depart: 'dimulai - sedang menuju lokasi penjemputan',
-        arrive: 'tiba di tujuan',
-        returning: 'sedang kembali',
-        complete: 'selesai',
-      };
-
-      toast({
-        title: 'Berhasil',
-        description: `Pesanan telah ${actionMessages[action]}`,
-      });
-
-      // Refresh immediately after action
-      setLoadingAction(null);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UI feedback
-      fetchData();
-    } catch (error) {
-      setLoadingAction(null);
-      toast({
-        title: 'Gagal',
-        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
-        variant: 'destructive',
-      });
+    // For GPS-requiring actions, show permission dialog only once
+    if (['depart', 'arrive', 'returning', 'complete'].includes(action)) {
+      const nextAction = action as 'depart' | 'arrive' | 'returning' | 'complete';
+      const granted = await isGpsPermissionGranted();
+      if (granted) {
+        await runGpsAction(nextAction);
+        return;
+      }
+      setGPSAction(nextAction);
+      setShowGPSPermissionDialog(true);
+      return;
     }
+  };
+
+  const handleGPSPermissionAllow = async () => {
+    if (!gpsAction) return;
+    await runGpsAction(gpsAction);
+  };
+
+  const handleGPSPermissionDeny = () => {
+    setShowGPSPermissionDialog(false);
+    setGPSAction(null);
+    toast({
+      title: 'GPS Ditolak',
+      description: 'Anda perlu mengizinkan akses GPS untuk melanjutkan',
+      variant: 'default',
+    });
   };
 
   const handleAcceptBooking = async () => {
@@ -296,11 +431,38 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
           </h3>
           <Card className="border-orange-200">
             <CardContent className="p-4 space-y-4">
-              <MapVisualization 
-                pickup={activeBooking.pickupCoords as { lat: number; lng: number; name: string } | null}
-                destination={activeBooking.destinationCoords as { lat: number; lng: number; name: string } | null}
-                currentStatus={activeBooking.status as string}
-              />
+              {(() => {
+                const pickupCoords = normalizeCoords(activeBooking.pickupCoords);
+                const destinationCoords = normalizeCoords(activeBooking.destinationCoords);
+                const currentCoords = normalizeCoords(activeBooking.currentCoords);
+                const pickup = pickupCoords
+                  ? { lat: pickupCoords.lat, lng: pickupCoords.lng, name: activeBooking.pickupLocation as string }
+                  : null;
+                const destination = destinationCoords
+                  ? { lat: destinationCoords.lat, lng: destinationCoords.lng, name: activeBooking.destination as string }
+                  : null;
+                const currentLocation = currentCoords
+                  ? { latitude: currentCoords.lat, longitude: currentCoords.lng }
+                  : null;
+
+                if (!pickup && !destination) {
+                  return (
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <p className="text-sm text-slate-600 text-center">Koordinat lokasi belum tersedia</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <GPSMap
+                    waypoints={[]}
+                    pickup={pickup}
+                    destination={destination}
+                    currentLocation={currentLocation}
+                    height="h-64"
+                  />
+                );
+              })()}
 
               {/* Progress Steps */}
               <div className="flex items-center justify-between px-2">
@@ -751,6 +913,14 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* GPS Permission Dialog */}
+      <GPSPermissionDialog
+        isOpen={showGPSPermissionDialog}
+        onAllow={handleGPSPermissionAllow}
+        onDeny={handleGPSPermissionDeny}
+        isLoading={isRequestingGPS}
+      />
     </div>
   );
 }

@@ -13,28 +13,7 @@ function getUserIdFromToken(authHeader: string | null): string | null {
   }
 }
 
-// Jakarta area coordinates for dummy locations
-const JAKARTA_LOCATIONS: Record<string, { lat: number; lng: number; name: string }> = {
-  'Kantor BI Jakarta': { lat: -6.1751, lng: 106.8248, name: 'Kantor BI Jakarta' },
-  'Bandara Soekarno-Hatta': { lat: -6.1256, lng: 106.6559, name: 'Bandara Soekarno-Hatta' },
-  'Gedung DPR': { lat: -6.2088, lng: 106.8007, name: 'Gedung DPR' },
-  'Istana Merdeka': { lat: -6.1699, lng: 106.8264, name: 'Istana Merdeka' },
-  'Monas': { lat: -6.1754, lng: 106.8272, name: 'Monas' },
-  'Kantor BI Surabaya': { lat: -7.2575, lng: 112.7521, name: 'Kantor BI Surabaya' },
-  'Hotel Indonesia': { lat: -6.1952, lng: 106.8232, name: 'Hotel Indonesia' },
-  'GBK Senayan': { lat: -6.2182, lng: 106.8071, name: 'GBK Senayan' },
-};
-
-// Find matching location coordinates
-function findLocationCoords(locationName: string) {
-  for (const [key, coords] of Object.entries(JAKARTA_LOCATIONS)) {
-    if (locationName.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(locationName.toLowerCase())) {
-      return coords;
-    }
-  }
-  // Default to Monas area if not found
-  return { lat: -6.1754 + (Math.random() * 0.01 - 0.005), lng: 106.8272 + (Math.random() * 0.01 - 0.005), name: locationName };
-}
+// Note: pickup/destination coordinates are optional and should be provided explicitly when available.
 
 // Get all bookings
 export async function GET(request: NextRequest) {
@@ -154,10 +133,6 @@ export async function POST(request: NextRequest) {
       where: { assignedToId: randomDriver.id },
     });
 
-    // Find coordinates for pickup and destination
-    const pickupCoords = findLocationCoords(pickupLocation);
-    const destinationCoords = findLocationCoords(destination);
-
     const newBooking = await db.booking.create({
       data: {
         employeeId: userId,
@@ -169,8 +144,6 @@ export async function POST(request: NextRequest) {
         bookingTime,
         status: BookingStatus.PENDING,
         notes: notes || null,
-        pickupCoords: JSON.stringify(pickupCoords),
-        destinationCoords: JSON.stringify(destinationCoords),
       },
       include: {
         employee: { select: { id: true, email: true, name: true, phone: true, role: true, isActive: true } },

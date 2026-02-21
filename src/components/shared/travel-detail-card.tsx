@@ -1,10 +1,13 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapVisualization } from '@/components/shared/map-visualization';
+import { GPSMap } from '@/components/shared/gps-map';
 import { TripRatingDisplay } from '@/components/shared/trip-rating';
 import { formatDate } from '@/lib/format';
+import { api } from '@/lib/api';
 import { 
   Car, 
   MapPin, 
@@ -15,21 +18,45 @@ import {
   Gauge,
   CheckCircle2,
   Circle,
-  ArrowRight
+  ArrowRight,
+  Map as MapIcon,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TravelDetailCardProps {
   booking: Record<string, unknown>;
   showDriver?: boolean;
+  token?: string;
 }
 
-export function TravelDetailCard({ booking, showDriver = true }: TravelDetailCardProps) {
+export function TravelDetailCard({ booking, showDriver = true, token }: TravelDetailCardProps) {
+  const [gpsWaypoints, setGpsWaypoints] = useState<Array<Record<string, unknown>>>([]);
+  const [isLoadingGPS, setIsLoadingGPS] = useState(false);
+
+  useEffect(() => {
+    // Load GPS waypoints if booking has started
+    if (token && booking.id && ['DEPARTED', 'ARRIVED', 'RETURNING', 'COMPLETED'].includes(booking.status as string)) {
+      const loadWaypoints = async () => {
+        setIsLoadingGPS(true);
+        try {
+          const response = await api(`/gps?bookingId=${booking.id}`, {}, token);
+          setGpsWaypoints(response.waypoints || []);
+        } catch (error) {
+          console.error('Error loading GPS waypoints:', error);
+        } finally {
+          setIsLoadingGPS(false);
+        }
+      };
+      loadWaypoints();
+    }
+  }, [booking.id, booking.status, token]);
+
   const parseCoords = (coordsStr: string | null) => {
     if (!coordsStr) return null;
     try {
       const parsed = JSON.parse(coordsStr);
-      return { lat: parsed.lat, lng: parsed.lng };
+      return { lat: parsed.lat ?? parsed.latitude, lng: parsed.lng ?? parsed.longitude };
     } catch {
       return null;
     }
@@ -37,6 +64,7 @@ export function TravelDetailCard({ booking, showDriver = true }: TravelDetailCar
 
   const pickupCoords = parseCoords(booking.pickupCoords as string | null);
   const destCoords = parseCoords(booking.destinationCoords as string | null);
+  const currentCoords = parseCoords(booking.currentCoords as string | null);
 
   const pickupData = pickupCoords ? {
     ...pickupCoords,
@@ -261,6 +289,40 @@ export function TravelDetailCard({ booking, showDriver = true }: TravelDetailCar
             </div>
           </div>
         </div>
+
+        {/* GPS Map Visualization */}
+        {['DEPARTED', 'ARRIVED', 'RETURNING', 'COMPLETED'].includes(booking.status as string) && (
+          <div className="p-4 pt-3 pb-3 border-b">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <MapIcon className="h-4 w-4 text-primary" />
+                <h4 className="text-sm font-semibold">Rute Perjalanan GPS</h4>
+              </div>
+              {isLoadingGPS && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              {!isLoadingGPS && gpsWaypoints.length > 0 && (
+                <span className="text-xs text-muted-foreground ml-auto">{gpsWaypoints.length} titik lokasi</span>
+              )}
+            </div>
+            <GPSMap
+              waypoints={gpsWaypoints.map((w: Record<string, unknown>) => ({
+                id: w.id as string,
+                latitude: w.latitude as number,
+                longitude: w.longitude as number,
+                accuracy: w.accuracy as number | undefined,
+                timestamp: w.timestamp as string,
+              }))}
+              pickup={pickupData}
+              destination={destData}
+              currentLocation={currentCoords ? { latitude: currentCoords.lat, longitude: currentCoords.lng } : undefined}
+              height="h-80"
+            />
+            {gpsWaypoints.length === 0 && !isLoadingGPS && (
+              <div className="text-center py-6 text-muted-foreground text-sm">
+                Belum ada data GPS yang tersimpan untuk perjalanan ini
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Additional Details */}
         <div className="p-4 pt-3 space-y-2.5">

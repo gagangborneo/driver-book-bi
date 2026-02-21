@@ -48,6 +48,7 @@ export function TravelDetailModal({
           <TravelDetailCard 
             booking={booking}
             showDriver={showDriver}
+            token={token}
           />
 
           {/* Rating Form for Completed Trip */}

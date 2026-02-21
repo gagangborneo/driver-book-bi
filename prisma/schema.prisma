@@ -110,6 +110,23 @@ model Booking {
   employee User     @relation("EmployeeBookings", fields: [employeeId], references: [id])
   driver   User?    @relation("DriverBookings", fields: [driverId], references: [id])
   vehicle  Vehicle? @relation(fields: [vehicleId], references: [id])
+  gpsWaypoints GPSWaypoint[]
+}
+
+model GPSWaypoint {
+  id        String   @id @default(cuid())
+  bookingId String
+  latitude  Float
+  longitude Float
+  accuracy  Float?
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([timestamp])
 }
 
 model LogBook {

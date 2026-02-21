@@ -151,6 +151,7 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
             <TravelDetailCard 
               booking={activeBooking}
               showDriver={true}
+              token={token}
             />
 
             {/* Rating Form for Completed Trip */}
