@@ -42,6 +42,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showGPSPermissionDialog, setShowGPSPermissionDialog] = useState(false);
+  const [showOdometerModal, setShowOdometerModal] = useState(false);
   const [gpsAction, setGPSAction] = useState<'depart' | 'arrive' | 'returning' | 'complete' | null>(null);
   const [isRequestingGPS, setIsRequestingGPS] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Record<string, unknown> | null>(null);
@@ -50,6 +51,9 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Array<Record<string, unknown>>>([]);
+  const [odometerValue, setOdometerValue] = useState<string>('');
+  const [pendingOdometerValue, setPendingOdometerValue] = useState<number | null>(null);
+  const [pendingOdometerAction, setPendingOdometerAction] = useState<'depart' | 'complete' | null>(null);
   const [logBookForm, setLogBookForm] = useState({
     vehicleId: '',
     type: 'WASHING',
@@ -129,7 +133,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
     }
   };
 
-  const runGpsAction = async (action: 'depart' | 'arrive' | 'returning' | 'complete') => {
+  const runGpsAction = async (action: 'depart' | 'arrive' | 'returning' | 'complete', odometer?: number) => {
     if (!activeBooking) return;
 
     setIsRequestingGPS(true);
@@ -142,7 +146,11 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
       };
 
       // Record GPS location when updating status
-      let gpsData: Record<string, unknown> = { status: statusMap[action] };
+      let gpsData: Record<string, unknown> = { 
+        status: statusMap[action],
+        ...(odometer && action === 'depart' && { startOdometer: odometer }),
+        ...(odometer && action === 'complete' && { endOdometer: odometer }),
+      };
       
       // Get current location using geolocation API
       if ('geolocation' in navigator) {
@@ -215,7 +223,11 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
       // Close dialog and refresh
       setShowGPSPermissionDialog(false);
+      setShowOdometerModal(false);
       setGPSAction(null);
+      setPendingOdometerAction(null);
+      setPendingOdometerValue(null);
+      setOdometerValue('');
       setIsRequestingGPS(false);
       setLoadingAction(null);
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -255,9 +267,17 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
       return;
     }
 
-    // For GPS-requiring actions, show permission dialog only once
-    if (['depart', 'arrive', 'returning', 'complete'].includes(action)) {
-      const nextAction = action as 'depart' | 'arrive' | 'returning' | 'complete';
+    // For odometer-requiring actions, show odometer input dialog first
+    if (['depart', 'complete'].includes(action)) {
+      setOdometerValue('');
+      setPendingOdometerAction(action as 'depart' | 'complete');
+      setShowOdometerModal(true);
+      return;
+    }
+
+    // For other GPS-requiring actions, show permission dialog only once
+    if (['arrive', 'returning'].includes(action)) {
+      const nextAction = action as 'arrive' | 'returning';
       const granted = await isGpsPermissionGranted();
       if (granted) {
         await runGpsAction(nextAction);
@@ -271,17 +291,64 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
   const handleGPSPermissionAllow = async () => {
     if (!gpsAction) return;
-    await runGpsAction(gpsAction);
+    await runGpsAction(gpsAction, pendingOdometerValue || undefined);
   };
 
   const handleGPSPermissionDeny = () => {
     setShowGPSPermissionDialog(false);
     setGPSAction(null);
+    setPendingOdometerValue(null);
     toast({
       title: 'GPS Ditolak',
       description: 'Anda perlu mengizinkan akses GPS untuk melanjutkan',
       variant: 'default',
     });
+  };
+
+  const handleOdometerSubmit = async () => {
+    if (!odometerValue.trim() || !pendingOdometerAction) {
+      toast({
+        title: 'Peringatan',
+        description: 'Silakan masukkan nilai odometer',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const odometerNum = parseInt(odometerValue);
+    if (isNaN(odometerNum) || odometerNum < 0) {
+      toast({
+        title: 'Peringatan',
+        description: 'Nilai odometer harus berupa angka positif',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check if odometer is consistent
+    if (pendingOdometerAction === 'complete' && activeBooking?.startOdometer) {
+      const startOdometer = Number(activeBooking.startOdometer);
+      if (odometerNum < startOdometer) {
+        toast({
+          title: 'Peringatan',
+          description: `Odometer akhir (${odometerNum} km) tidak boleh kurang dari odometer awal (${startOdometer} km)`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    const granted = await isGpsPermissionGranted();
+    if (granted) {
+      await runGpsAction(pendingOdometerAction, odometerNum);
+      return;
+    }
+
+    // Store odometer value for later use when GPS permission is granted
+    setPendingOdometerValue(odometerNum);
+    setGPSAction(pendingOdometerAction as any);
+    setShowOdometerModal(false);
+    setShowGPSPermissionDialog(true);
   };
 
   const handleAcceptBooking = async () => {
@@ -745,56 +812,76 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Deskripsi</Label>
-              <Textarea
-                placeholder="Deskripsi aktivitas..."
-                value={logBookForm.description}
-                onChange={(e) => setLogBookForm({ ...logBookForm, description: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tanggal</Label>
-                <Input
-                  type="date"
-                  value={logBookForm.date}
-                  onChange={(e) => setLogBookForm({ ...logBookForm, date: e.target.value })}
-                />
+            {logBookForm.type === 'FUEL' ? (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                <p className="text-sm text-blue-900">
+                  Untuk pengisian BBM, silakan isi form menggunakan link di bawah:
+                </p>
+                <a
+                  href="https://forms.gle/y6duajzgovPbBmkJ9"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Buka Form Pengisian BBM
+                </a>
               </div>
-              <div className="space-y-2">
-                <Label>Biaya (Rp)</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={logBookForm.cost}
-                  onChange={(e) => setLogBookForm({ ...logBookForm, cost: e.target.value })}
-                />
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Deskripsi</Label>
+                  <Textarea
+                    placeholder="Deskripsi aktivitas..."
+                    value={logBookForm.description}
+                    onChange={(e) => setLogBookForm({ ...logBookForm, description: e.target.value })}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label>Odometer (km)</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={logBookForm.odometer}
-                onChange={(e) => setLogBookForm({ ...logBookForm, odometer: e.target.value })}
-              />
-            </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tanggal</Label>
+                    <Input
+                      type="date"
+                      value={logBookForm.date}
+                      onChange={(e) => setLogBookForm({ ...logBookForm, date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Biaya (Rp)</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={logBookForm.cost}
+                      onChange={(e) => setLogBookForm({ ...logBookForm, cost: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Odometer (km)</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={logBookForm.odometer}
+                    onChange={(e) => setLogBookForm({ ...logBookForm, odometer: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLogBookModal(false)}>
               Batal
             </Button>
-            <Button 
-              onClick={handleLogBookSubmit}
-              disabled={!logBookForm.vehicleId || !logBookForm.description}
-            >
-              Simpan
-            </Button>
+            {logBookForm.type !== 'FUEL' && (
+              <Button 
+                onClick={handleLogBookSubmit}
+                disabled={!logBookForm.vehicleId || !logBookForm.description}
+              >
+                Simpan
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -909,6 +996,62 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
               disabled={!rejectionReason.trim() || isSubmitting}
             >
               {isSubmitting ? 'Memproses...' : 'Konfirmasi Tolak'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Odometer Input Modal */}
+      <Dialog open={showOdometerModal} onOpenChange={setShowOdometerModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {pendingOdometerAction === 'depart' 
+                ? 'Input Odometer Awal' 
+                : 'Input Odometer Akhir'}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingOdometerAction === 'depart' 
+                ? 'Silakan masukkan nilai odometer sebelum perjalanan dimulai' 
+                : 'Silakan masukkan nilai odometer setelah perjalanan selesai'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nilai Odometer (km) *</Label>
+              <Input
+                type="number"
+                placeholder="Contoh: 45000"
+                value={odometerValue}
+                onChange={(e) => setOdometerValue(e.target.value)}
+                min="0"
+              />
+              {activeBooking?.startOdometer && pendingOdometerAction === 'complete' && (
+                <p className="text-xs text-muted-foreground">
+                  Odometer awal: {activeBooking.startOdometer as number} km
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowOdometerModal(false);
+                setOdometerValue('');
+                setPendingOdometerAction(null);
+                setPendingOdometerValue(null);
+              }}
+            >
+              Batal
+            </Button>
+            <Button 
+              onClick={handleOdometerSubmit}
+              disabled={!odometerValue.trim() || isRequestingGPS}
+            >
+              {isRequestingGPS ? 'Memproses...' : 'Lanjutkan'}
             </Button>
           </DialogFooter>
         </DialogContent>

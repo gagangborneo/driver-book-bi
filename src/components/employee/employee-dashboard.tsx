@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Car, History, Bell, User as UserIcon, Navigation as NavigationIcon, Plane, Hotel } from 'lucide-react';
+import { Car, History, Bell, User as UserIcon, Navigation as NavigationIcon, Plane, Hotel, Calendar, BarChart3 } from 'lucide-react';
 import { WelcomeBanner } from '@/components/shared/welcome-banner';
 import { QuickActionsGrid } from '@/components/shared/quick-actions-grid';
 import { TravelDetailCard } from '@/components/shared/travel-detail-card';
@@ -120,6 +120,18 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
       label: 'Room Booking',
       color: 'bg-pink-600',
       action: () => window.open('https://form.jotform.com/253031772227048', '_blank', 'noopener,noreferrer'),
+    },
+    {
+      icon: Calendar,
+      label: 'Cuti',
+      color: 'bg-amber-600',
+      action: () => window.open('https://form.jotform.com/253171927374462', '_blank', 'noopener,noreferrer'),
+    },
+    {
+      icon: BarChart3,
+      label: 'Dashboard Monitoring',
+      color: 'bg-indigo-600',
+      action: () => window.open('https://app.powerbi.com/view?r=eyJrIjoiMDE5MGNiOWItMzI1NS00MTZlLTliN2MtNTZiODcwZjYxMDM0IiwidCI6ImNhMzc0OTJlLWY0MTAtNDI3Yi1hYjM5LTA1NWJkYzE4Y2UwMiIsImMiOjEwfQ%3D%3D', '_blank', 'noopener,noreferrer'),
     },
   ];
 
