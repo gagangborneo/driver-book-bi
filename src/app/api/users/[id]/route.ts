@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { UserRole } from '@prisma/client';
+import { UserRole, DriverStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 function getUserIdFromToken(authHeader: string | null): string | null {
@@ -34,6 +34,7 @@ export async function GET(
         phone: true,
         role: true,
         isActive: true,
+        driverStatus: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -98,6 +99,15 @@ export async function PUT(
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     if (data.role && currentUser?.role === UserRole.ADMIN) updateData.role = data.role;
+    
+    if (data.driverStatus !== undefined) {
+      // Validate driverStatus is a valid enum value
+      const validStatuses = [DriverStatus.AVAILABLE, DriverStatus.ON_TRIP, DriverStatus.OFFLINE, DriverStatus.ON_BREAK];
+      if (!validStatuses.includes(data.driverStatus)) {
+        return NextResponse.json({ error: 'Status driver tidak valid' }, { status: 400 });
+      }
+      updateData.driverStatus = data.driverStatus as DriverStatus;
+    }
 
     const updatedUser = await db.user.update({
       where: { id },
@@ -109,6 +119,7 @@ export async function PUT(
         phone: true,
         role: true,
         isActive: true,
+        driverStatus: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -117,7 +128,8 @@ export async function PUT(
     return NextResponse.json({ user: updatedUser });
   } catch (error) {
     console.error('Update user error:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 

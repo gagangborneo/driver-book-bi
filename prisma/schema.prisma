@@ -40,17 +40,25 @@ enum VehicleStatus {
   MAINTENANCE
 }
 
+enum DriverStatus {
+  AVAILABLE
+  ON_TRIP
+  OFFLINE
+  ON_BREAK
+}
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  phone     String?
-  role      UserRole @default(EMPLOYEE)
-  avatar    String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String        @id @default(cuid())
+  email         String        @unique
+  password      String
+  name          String
+  phone         String?
+  role          UserRole      @default(EMPLOYEE)
+  avatar        String?
+  isActive      Boolean       @default(true)
+  driverStatus  DriverStatus? @default(OFFLINE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   // Relations
   bookingsAsEmployee Booking[]  @relation("EmployeeBookings")

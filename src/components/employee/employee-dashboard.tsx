@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Car, History, Bell, User as UserIcon, Navigation as NavigationIcon } from 'lucide-react';
+import { Car, History, Bell, User as UserIcon, Navigation as NavigationIcon, Plane, Hotel } from 'lucide-react';
 import { WelcomeBanner } from '@/components/shared/welcome-banner';
 import { QuickActionsGrid } from '@/components/shared/quick-actions-grid';
 import { TravelDetailCard } from '@/components/shared/travel-detail-card';
@@ -109,6 +109,18 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
     { icon: History, label: 'Riwayat', color: 'bg-green-500', action: () => router.push('/employee/history') },
     { icon: Bell, label: 'Notifikasi', color: 'bg-orange-500', action: () => router.push('/employee/notifications') },
     { icon: UserIcon, label: 'Profil', color: 'bg-purple-500', action: () => router.push('/employee/account') },
+    {
+      icon: Plane,
+      label: 'Booking Tiket Pesawat',
+      color: 'bg-cyan-600',
+      action: () => window.open('https://forms.office.com/r/VapKhrJPNQ?origin=lprLink', '_blank', 'noopener,noreferrer'),
+    },
+    {
+      icon: Hotel,
+      label: 'Room Booking',
+      color: 'bg-pink-600',
+      action: () => window.open('https://form.jotform.com/253031772227048', '_blank', 'noopener,noreferrer'),
+    },
   ];
 
   return (

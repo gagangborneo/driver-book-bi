@@ -14,10 +14,15 @@ export const api = async (endpoint: string, options: RequestInit = {}, token?: s
     headers,
   });
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    data = { error: response.statusText || 'Unknown error' };
+  }
   
   if (!response.ok) {
-    throw new Error(data.error || 'Request failed');
+    throw new Error(data?.error || data?.message || 'Request failed');
   }
   
   return data;

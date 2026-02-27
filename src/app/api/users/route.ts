@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { UserRole } from '@prisma/client';
+import { UserRole, DriverStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 // Simple token validation
@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
         phone: true,
         role: true,
         isActive: true,
+        driverStatus: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -54,7 +55,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ users });
   } catch (error) {
     console.error('Get users error:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -92,6 +94,7 @@ export async function POST(request: NextRequest) {
         phone: phone || null,
         role: newRole as UserRole,
         isActive: true,
+        driverStatus: newRole === 'DRIVER' ? DriverStatus.OFFLINE : null,
       },
       select: {
         id: true,
@@ -100,6 +103,7 @@ export async function POST(request: NextRequest) {
         phone: true,
         role: true,
         isActive: true,
+        driverStatus: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -108,6 +112,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ user: newUser });
   } catch (error) {
     console.error('Create user error:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

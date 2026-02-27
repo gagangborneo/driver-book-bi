@@ -57,6 +57,7 @@ export function AdminUsers({ token }: AdminUsersProps) {
     password: '',
     role: 'EMPLOYEE',
     isActive: true,
+    driverStatus: '',
   });
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -141,6 +142,28 @@ export function AdminUsers({ token }: AdminUsersProps) {
     }
   };
 
+  const handleChangeDriverStatus = async (userId: string, newStatus: string) => {
+    try {
+      await api(`/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ driverStatus: newStatus }),
+      }, token);
+
+      toast({
+        title: 'Berhasil',
+        description: `Status driver diubah menjadi ${getStatusLabel(newStatus)}`,
+      });
+
+      fetchUsers();
+    } catch (error) {
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleToggleActive = async (userId: string, currentStatus: boolean) => {
     try {
       await api(`/users/${userId}`, {
@@ -163,6 +186,16 @@ export function AdminUsers({ token }: AdminUsersProps) {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      AVAILABLE: 'Tersedia',
+      ON_TRIP: 'Sedang Perjalanan',
+      OFFLINE: 'Offline',
+      ON_BREAK: 'Istirahat',
+    };
+    return labels[status] || status;
+  };
+
   const handleEditUser = async () => {
     if (!editUser.id) return;
     
@@ -178,6 +211,10 @@ export function AdminUsers({ token }: AdminUsersProps) {
       if (editUser.password && editUser.password.trim() !== '') {
         updateData.password = editUser.password;
       }
+
+      if (editUser.driverStatus && editUser.role === 'DRIVER') {
+        updateData.driverStatus = editUser.driverStatus;
+      }
       
       await api(`/users/${editUser.id}`, {
         method: 'PUT',
@@ -190,7 +227,7 @@ export function AdminUsers({ token }: AdminUsersProps) {
       });
 
       setShowEditModal(false);
-      setEditUser({ id: '', name: '', email: '', phone: '', password: '', role: 'EMPLOYEE', isActive: true });
+      setEditUser({ id: '', name: '', email: '', phone: '', password: '', role: 'EMPLOYEE', isActive: true, driverStatus: '' });
       fetchUsers();
     } catch (error) {
       toast({
@@ -240,6 +277,7 @@ export function AdminUsers({ token }: AdminUsersProps) {
       password: '',
       role: user.role as string,
       isActive: user.isActive as boolean,
+      driverStatus: (user.driverStatus as string) || '',
     });
     setShowEditModal(true);
   };
@@ -302,12 +340,33 @@ export function AdminUsers({ token }: AdminUsersProps) {
                     </div>
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <RoleBadge role={user.role as string} />
+                      {user.role === 'DRIVER' && user.driverStatus ? (
+                        <Badge variant="outline">
+                          {getStatusLabel(String(user.driverStatus))}
+                        </Badge>
+                      ) : null}
                       <Badge variant={user.isActive ? 'default' : 'secondary'}>
                         {user.isActive ? 'Aktif' : 'Nonaktif'}
                       </Badge>
                     </div>
                   </div>
                   <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
+                    {user.role === 'DRIVER' && (
+                      <Select 
+                        value={user.driverStatus as string || 'OFFLINE'} 
+                        onValueChange={(value) => handleChangeDriverStatus(user.id as string, value)}
+                      >
+                        <SelectTrigger className="w-32 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AVAILABLE">Tersedia</SelectItem>
+                          <SelectItem value="ON_TRIP">Sedang Perjalanan</SelectItem>
+                          <SelectItem value="ON_BREAK">Istirahat</SelectItem>
+                          <SelectItem value="OFFLINE">Offline</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -441,6 +500,11 @@ export function AdminUsers({ token }: AdminUsersProps) {
                   <p className="text-sm text-muted-foreground">{selectedUser.email as string}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <RoleBadge role={selectedUser.role as string} />
+                    {selectedUser.role === 'DRIVER' && selectedUser.driverStatus ? (
+                      <Badge variant="outline">
+                        {getStatusLabel(String(selectedUser.driverStatus))}
+                      </Badge>
+                    ) : null}
                     <Badge variant={selectedUser.isActive ? 'default' : 'secondary'}>
                       {selectedUser.isActive ? 'Aktif' : 'Nonaktif'}
                     </Badge>
@@ -618,6 +682,22 @@ export function AdminUsers({ token }: AdminUsersProps) {
                 </SelectContent>
               </Select>
             </div>
+            {editUser.role === 'DRIVER' && (
+              <div className="space-y-2">
+                <Label>Status Driver</Label>
+                <Select value={editUser.driverStatus} onValueChange={(value) => setEditUser({ ...editUser, driverStatus: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AVAILABLE">Tersedia</SelectItem>
+                    <SelectItem value="ON_TRIP">Sedang Perjalanan</SelectItem>
+                    <SelectItem value="ON_BREAK">Istirahat</SelectItem>
+                    <SelectItem value="OFFLINE">Offline</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
