@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import * as bcrypt from 'bcrypt';
+import { signToken } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,8 +40,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate simple token (base64 of userId + timestamp)
-    const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64');
+    // Generate JWT token with user info
+    const token = signToken({ userId: user.id, email: user.email, role: user.role });
 
     // Return user without password
     const { password: _, ...userWithoutPassword } = user;

@@ -173,6 +173,142 @@ async function main() {
 
   console.log(`Created ${bookings.length} bookings`);
 
+  // Seed WhatsApp Configuration
+  const whatsappConfig = await prisma.whatsAppConfig.upsert({
+    where: { deviceId: 'e6683d05a9bfa0f2ca6087857cff17ed' },
+    update: {},
+    create: {
+      deviceId: 'e6683d05a9bfa0f2ca6087857cff17ed',
+      apiUrl: 'https://app.whacenter.com/api',
+      isActive: true,
+    },
+  });
+
+  console.log('Created WhatsApp configuration');
+
+  // Seed WhatsApp Routes/Groups
+  const whatsappRoutes = await Promise.all([
+    prisma.whatsAppRoute.upsert({
+      where: { name: 'Driver Notifications' },
+      update: {},
+      create: {
+        name: 'Driver Notifications',
+        groupId: 'WAGDriver',
+        description: 'Group untuk notifikasi driver tentang pesanan baru',
+        isActive: true,
+      },
+    }),
+    prisma.whatsAppRoute.upsert({
+      where: { name: 'Management Group' },
+      update: {},
+      create: {
+        name: 'Management Group',
+        groupId: 'WAGManagement',
+        description: 'Group untuk komunikasi manajemen',
+        isActive: true,
+      },
+    }),
+    prisma.whatsAppRoute.upsert({
+      where: { name: 'Employee Notifications' },
+      update: {},
+      create: {
+        name: 'Employee Notifications',
+        groupId: 'WAGEmployee',
+        description: 'Notifikasi untuk karyawan',
+        isActive: true,
+      },
+    }),
+  ]);
+
+  console.log(`Created ${whatsappRoutes.length} WhatsApp routes`);
+
+  // Seed WhatsApp Templates
+  const whatsappTemplates = await Promise.all([
+    prisma.whatsAppTemplate.upsert({
+      where: { name: 'New Booking Alert' },
+      update: {},
+      create: {
+        name: 'New Booking Alert',
+        type: 'BOOKING',
+        content: `🚗 Pesanan Driver Baru Masuk!
+
+📍 Jemput: {pickupLocation}
+📍 Tujuan: {destination}
+⏰ Waktu: {bookingTime}
+👤 Pengguna: {employeeName}
+
+Segera cek aplikasi: {appUrl}`,
+        isActive: true,
+      },
+    }),
+    prisma.whatsAppTemplate.upsert({
+      where: { name: 'Booking Accepted' },
+      update: {},
+      create: {
+        name: 'Booking Accepted',
+        type: 'ACCEPTED',
+        content: `✅ Pesanan Diterima!
+
+Driver: {driverName}
+Kendaraan: {vehiclePlateNo}
+
+Status: {status}
+Pantau perjalanan: {appUrl}`,
+        isActive: true,
+      },
+    }),
+    prisma.whatsAppTemplate.upsert({
+      where: { name: 'Trip Completed' },
+      update: {},
+      create: {
+        name: 'Trip Completed',
+        type: 'COMPLETED',
+        content: `✓ Perjalanan Selesai!
+
+Driver: {driverName}
+Lokasi Akhir: {destination}
+Waktu Selesai: {completedTime}
+
+Terima kasih telah menggunakan layanan kami.`,
+        isActive: true,
+      },
+    }),
+    prisma.whatsAppTemplate.upsert({
+      where: { name: 'Booking Cancelled' },
+      update: {},
+      create: {
+        name: 'Booking Cancelled',
+        type: 'CANCELLED',
+        content: `❌ Pesanan Dibatalkan
+
+Alasan: {cancellationReason}
+Waktu: {cancelledTime}
+
+Silakan hubungi admin jika ada pertanyaan.`,
+        isActive: true,
+      },
+    }),
+    prisma.whatsAppTemplate.upsert({
+      where: { name: 'Booking Reminder' },
+      update: {},
+      create: {
+        name: 'Booking Reminder',
+        type: 'REMINDER',
+        content: `⏰ Pengingat Pesanan
+
+Pesanan Anda dijadwalkan:
+📍 Dari: {pickupLocation}
+📍 Ke: {destination}
+⏰ Waktu: {bookingTime}
+
+Harap siap tepat waktu. Hubungi kami jika ada perubahan.`,
+        isActive: true,
+      },
+    }),
+  ]);
+
+  console.log(`Created ${whatsappTemplates.length} WhatsApp templates`);
+
   console.log('Seeding completed!');
 }
 

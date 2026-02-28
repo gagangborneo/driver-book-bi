@@ -1,0 +1,435 @@
+{
+  "API_Bookings_GET": {
+    "endpoint": "GET /api/bookings",
+    "description": "Mendapatkan semua booking sesuai role user",
+    "response": {
+      "bookings": [
+        {
+          "id": "booking-001",
+          "employeeId": "emp-123",
+          "driverId": "drv-456",
+          "vehicleId": "veh-789",
+          "pickupLocation": "Kantor BI Balikpapan",
+          "destination": "Bandara Internasional Balikpapan",
+          "bookingDate": "2026-02-28",
+          "bookingTime": "14:30",
+          "notes": "Jangan lupa ambil dokumen di kantor",
+          "status": "DEPARTED",
+          "startOdometer": 45200,
+          "endOdometer": null,
+          "pickupCoords": {
+            "lat": -1.2650,
+            "lng": 116.7878
+          },
+          "destinationCoords": {
+            "lat": -1.3220,
+            "lng": 116.8456
+          },
+          "currentCoords": {
+            "latitude": -1.2890,
+            "longitude": 116.8150,
+            "timestamp": "2026-02-28T14:35:42.123Z"
+          },
+          "rating": null,
+          "createdAt": "2026-02-28T13:00:00.000Z",
+          "updatedAt": "2026-02-28T14:35:42.000Z",
+          "employee": {
+            "id": "emp-123",
+            "email": "karyawan@bi.go.id",
+            "name": "Budi Santoso",
+            "phone": "08123456789",
+            "role": "EMPLOYEE",
+            "isActive": true
+          },
+          "driver": {
+            "id": "drv-456",
+            "email": "driver@bi.go.id",
+            "name": "Ahmad Hidayat",
+            "phone": "08987654321",
+            "role": "DRIVER",
+            "isActive": true
+          },
+          "vehicle": {
+            "id": "veh-789",
+            "plateNumber": "BI 1234 AB",
+            "brand": "Toyota",
+            "model": "Avanza",
+            "year": 2023,
+            "color": "Silver",
+            "status": "IN_USE"
+          }
+        }
+      ]
+    }
+  },
+
+  "API_Drivers_GET": {
+    "endpoint": "GET /api/drivers",
+    "description": "Mendapatkan daftar semua driver dengan status ketersediaan",
+    "response": {
+      "drivers": [
+        {
+          "id": "drv-456",
+          "name": "Ahmad Hidayat",
+          "email": "driver@bi.go.id",
+          "phone": "08987654321",
+          "availabilityStatus": "IN_TRIP",
+          "assignedVehicle": {
+            "id": "veh-789",
+            "plateNumber": "BI 1234 AB",
+            "brand": "Toyota",
+            "model": "Avanza"
+          },
+          "bookingsAsDriver": [
+            {
+              "id": "booking-001",
+              "status": "DEPARTED",
+              "vehicle": {
+                "id": "veh-789",
+                "plateNumber": "BI 1234 AB"
+              },
+              "employee": {
+                "id": "emp-123",
+                "name": "Budi Santoso",
+                "email": "karyawan@bi.go.id",
+                "phone": "08123456789",
+                "role": "EMPLOYEE"
+              }
+            }
+          ]
+        },
+        {
+          "id": "drv-789",
+          "name": "Seri Gunawan",
+          "email": "seri.gunawan@bi.go.id",
+          "phone": "08765432109",
+          "availabilityStatus": "AVAILABLE",
+          "assignedVehicle": {
+            "id": "veh-101",
+            "plateNumber": "BI 5678 CD",
+            "brand": "Honda",
+            "model": "Odyssey"
+          },
+          "bookingsAsDriver": []
+        }
+      ]
+    }
+  },
+
+  "API_Stats_GET": {
+    "endpoint": "GET /api/stats",
+    "description": "Mendapatkan statistik berdasarkan role user",
+    "response_driver": {
+      "pendingBookings": 2,
+      "completedBookings": 15,
+      "todayBookings": 3
+    },
+    "response_employee": {
+      "totalBookings": 8,
+      "pendingBookings": 1,
+      "completedBookings": 6,
+      "inProgressBookings": 1
+    },
+    "response_admin": {
+      "totalUsers": 25,
+      "totalEmployees": 12,
+      "totalDrivers": 8,
+      "totalVehicles": 10,
+      "availableVehicles": 3,
+      "totalBookings": 125,
+      "pendingBookings": 5,
+      "completedBookings": 110,
+      "inProgressBookings": 10
+    }
+  },
+
+  "API_Vehicles_GET": {
+    "endpoint": "GET /api/vehicles",
+    "description": "Mendapatkan daftar semua kendaraan",
+    "response": {
+      "vehicles": [
+        {
+          "id": "veh-789",
+          "plateNumber": "BI 1234 AB",
+          "brand": "Toyota",
+          "model": "Avanza",
+          "year": 2023,
+          "color": "Silver",
+          "status": "IN_USE",
+          "assignedTo": {
+            "id": "drv-456",
+            "name": "Ahmad Hidayat",
+            "email": "driver@bi.go.id",
+            "phone": "08987654321",
+            "role": "DRIVER"
+          },
+          "createdAt": "2025-12-15T08:30:00.000Z",
+          "updatedAt": "2026-02-28T14:35:42.000Z"
+        },
+        {
+          "id": "veh-101",
+          "plateNumber": "BI 5678 CD",
+          "brand": "Honda",
+          "model": "Odyssey",
+          "year": 2022,
+          "color": "Black",
+          "status": "AVAILABLE",
+          "assignedTo": {
+            "id": "drv-789",
+            "name": "Seri Gunawan",
+            "email": "seri.gunawan@bi.go.id",
+            "phone": "08765432109",
+            "role": "DRIVER"
+          },
+          "createdAt": "2025-12-10T10:00:00.000Z",
+          "updatedAt": "2026-02-28T08:00:00.000Z"
+        }
+      ]
+    }
+  },
+
+  "API_GPS_POST": {
+    "endpoint": "POST /api/gps",
+    "description": "Mencatat posisi GPS selama perjalanan",
+    "request": {
+      "bookingId": "booking-001",
+      "latitude": -1.2890,
+      "longitude": 116.8150,
+      "accuracy": 15.5
+    },
+    "response": {
+      "waypoint": {
+        "id": "wp-001",
+        "bookingId": "booking-001",
+        "latitude": -1.2890,
+        "longitude": 116.8150,
+        "accuracy": 15.5,
+        "timestamp": "2026-02-28T14:35:42.123Z"
+      }
+    }
+  },
+
+  "API_GPS_GET": {
+    "endpoint": "GET /api/gps?bookingId=booking-001",
+    "description": "Mendapatkan semua waypoint GPS untuk booking tertentu",
+    "response": {
+      "waypoints": [
+        {
+          "id": "wp-001",
+          "bookingId": "booking-001",
+          "latitude": -1.2650,
+          "longitude": 116.7878,
+          "accuracy": 20.0,
+          "timestamp": "2026-02-28T14:30:00.000Z"
+        },
+        {
+          "id": "wp-002",
+          "bookingId": "booking-001",
+          "latitude": -1.2750,
+          "longitude": 116.8000,
+          "accuracy": 15.5,
+          "timestamp": "2026-02-28T14:32:30.000Z"
+        },
+        {
+          "id": "wp-003",
+          "bookingId": "booking-001",
+          "latitude": -1.2890,
+          "longitude": 116.8150,
+          "accuracy": 18.3,
+          "timestamp": "2026-02-28T14:35:42.000Z"
+        }
+      ]
+    }
+  },
+
+  "API_Leaderboard_GET": {
+    "endpoint": "GET /api/leaderboard?year=2026&month=2",
+    "description": "Mendapatkan leaderboard driver dan employee",
+    "response": {
+      "availableYears": [2026, 2025, 2024, 2023, 2022],
+      "currentYear": 2026,
+      "currentMonth": 2,
+      "driverLeaderboard": {
+        "monthly": [
+          {
+            "rank": 1,
+            "driver": {
+              "id": "drv-456",
+              "name": "Ahmad Hidayat",
+              "email": "driver@bi.go.id",
+              "phone": "08987654321"
+            },
+            "completedTrips": 8,
+            "averageRating": 4.75,
+            "totalDistance": 245.5
+          },
+          {
+            "rank": 2,
+            "driver": {
+              "id": "drv-789",
+              "name": "Seri Gunawan",
+              "email": "seri.gunawan@bi.go.id",
+              "phone": "08765432109"
+            },
+            "completedTrips": 6,
+            "averageRating": 4.50,
+            "totalDistance": 189.3
+          }
+        ],
+        "yearly": [
+          {
+            "rank": 1,
+            "driver": {
+              "id": "drv-456",
+              "name": "Ahmad Hidayat",
+              "email": "driver@bi.go.id",
+              "phone": "08987654321"
+            },
+            "completedTrips": 45,
+            "averageRating": 4.68,
+            "totalDistance": 1250.8
+          }
+        ]
+      },
+      "employeeLeaderboard": {
+        "monthly": [
+          {
+            "rank": 1,
+            "employee": {
+              "id": "emp-123",
+              "name": "Budi Santoso",
+              "email": "karyawan@bi.go.id",
+              "phone": "08123456789"
+            },
+            "completedTrips": 5,
+            "averageRating": 4.80
+          }
+        ],
+        "yearly": [
+          {
+            "rank": 1,
+            "employee": {
+              "id": "emp-123",
+              "name": "Budi Santoso",
+              "email": "karyawan@bi.go.id",
+              "phone": "08123456789"
+            },
+            "completedTrips": 22,
+            "averageRating": 4.72
+          }
+        ]
+      }
+    }
+  },
+
+  "API_Bookings_POST": {
+    "endpoint": "POST /api/bookings",
+    "description": "Membuat booking baru (untuk employee)",
+    "request": {
+      "pickupLocation": "Kantor BI Balikpapan",
+      "destination": "Bandara Internasional Balikpapan",
+      "bookingDate": "2026-02-28",
+      "bookingTime": "14:30",
+      "notes": "Jangan lupa ambil dokumen di kantor"
+    },
+    "response": {
+      "booking": {
+        "id": "booking-001",
+        "employeeId": "emp-123",
+        "driverId": null,
+        "vehicleId": null,
+        "pickupLocation": "Kantor BI Balikpapan",
+        "destination": "Bandara Internasional Balikpapan",
+        "bookingDate": "2026-02-28T00:00:00.000Z",
+        "bookingTime": "14:30",
+        "notes": "Jangan lupa ambil dokumen di kantor",
+        "status": "PENDING",
+        "startOdometer": null,
+        "endOdometer": null,
+        "pickupCoords": null,
+        "destinationCoords": null,
+        "currentCoords": null,
+        "rating": null,
+        "createdAt": "2026-02-28T13:00:00.000Z",
+        "updatedAt": "2026-02-28T13:00:00.000Z",
+        "employee": {
+          "id": "emp-123",
+          "email": "karyawan@bi.go.id",
+          "name": "Budi Santoso",
+          "phone": "08123456789",
+          "role": "EMPLOYEE",
+          "isActive": true
+        },
+        "driver": null,
+        "vehicle": null
+      }
+    }
+  },
+
+  "API_Vehicles_POST": {
+    "endpoint": "POST /api/vehicles",
+    "description": "Membuat kendaraan baru (hanya admin)",
+    "request": {
+      "plateNumber": "BI 1234 AB",
+      "brand": "Toyota",
+      "model": "Avanza",
+      "year": "2023",
+      "color": "Silver",
+      "assignedToId": "drv-456"
+    },
+    "response": {
+      "vehicle": {
+        "id": "veh-789",
+        "plateNumber": "BI 1234 AB",
+        "brand": "Toyota",
+        "model": "Avanza",
+        "year": 2023,
+        "color": "Silver",
+        "status": "AVAILABLE",
+        "assignedToId": "drv-456",
+        "assignedTo": {
+          "id": "drv-456",
+          "name": "Ahmad Hidayat",
+          "email": "driver@bi.go.id",
+          "phone": "08987654321",
+          "role": "DRIVER"
+        },
+        "createdAt": "2026-02-28T13:00:00.000Z",
+        "updatedAt": "2026-02-28T13:00:00.000Z"
+      }
+    }
+  },
+
+  "Error_Responses": {
+    "unauthorized": {
+      "status": 401,
+      "response": {
+        "error": "Unauthorized"
+      }
+    },
+    "forbidden": {
+      "status": 403,
+      "response": {
+        "error": "Forbidden"
+      }
+    },
+    "bad_request": {
+      "status": 400,
+      "response": {
+        "error": "Data tidak lengkap"
+      }
+    },
+    "not_found": {
+      "status": 404,
+      "response": {
+        "error": "Booking not found"
+      }
+    },
+    "server_error": {
+      "status": 500,
+      "response": {
+        "error": "Server error"
+      }
+    }
+  }
+}

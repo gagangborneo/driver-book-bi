@@ -11,8 +11,8 @@ interface MapVisualizationProps {
 
 export function MapVisualization({ pickup, destination, currentStatus }: MapVisualizationProps) {
   const getRelativePosition = (lat: number, lng: number) => {
-    const minLat = -6.3, maxLat = -6.0;
-    const minLng = 106.6, maxLng = 107.0;
+    const minLat = -1.4, maxLat = -1.1;
+    const minLng = 116.6, maxLng = 117.0;
     
     const x = ((lng - minLng) / (maxLng - minLng)) * 100;
     const y = ((maxLat - lat) / (maxLat - minLat)) * 100;

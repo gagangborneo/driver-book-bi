@@ -153,3 +153,32 @@ model LogBook {
   driver  User    @relation(fields: [driverId], references: [id])
   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
 }
+
+model WhatsAppConfig {
+  id              String   @id @default(cuid())
+  deviceId        String   @unique
+  apiUrl          String   @default("https://app.whacenter.com/api")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model WhatsAppRoute {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  groupId     String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WhatsAppTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String   // BOOKING, ACCEPTED, COMPLETED, etc.
+  content     String   // Message template with placeholders
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

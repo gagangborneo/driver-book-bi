@@ -33,8 +33,8 @@ export function GPSMap({
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    // Initialize map with default center (Jakarta)
-    const defaultCenter: [number, number] = [-6.2088, 106.8456];
+    // Initialize map with default center (Balikpapan)
+    const defaultCenter: [number, number] = [-1.2720, 116.7896];
     
     map.current = L.map(mapContainer.current).setView(defaultCenter, 12);
 
