@@ -365,8 +365,8 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
       }, token);
 
       toast({
-        title: 'Berhasil',
-        description: 'Pesanan telah disetujui dan kendaraan telah ditentukan',
+        title: 'Pesanan Diterima',
+        description: 'Anda telah mengkonfirmasi pesanan. Status pesanan telah menjadi APPROVED.',
       });
 
       setShowAcceptModal(false);
@@ -703,17 +703,22 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
         ) : (
           <div className="space-y-3">
             {pendingBookings.map((booking) => (
-              <Card key={booking.id as string} className="border-yellow-200">
+              <Card key={booking.id as string} className={`border-yellow-200 ${!booking.driverId ? 'border-2 border-green-400' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-1">
                       <Avatar>
                         <AvatarFallback>
                           {(booking.employee as Record<string, unknown>).name?.toString().charAt(0).toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">{(booking.employee as Record<string, unknown>).name as string}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{(booking.employee as Record<string, unknown>).name as string}</p>
+                          {!booking.driverId && (
+                            <Badge className="bg-green-600 text-xs">Open</Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">{(booking.employee as Record<string, unknown>).phone as string}</p>
                       </div>
                     </div>
@@ -890,9 +895,9 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
       <Dialog open={showAcceptModal} onOpenChange={setShowAcceptModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Terima Pesanan</DialogTitle>
+            <DialogTitle>Terima Pesanan Driver</DialogTitle>
             <DialogDescription>
-              Pilih kendaraan yang akan digunakan untuk perjalanan ini
+              Konfirmasi pesanan dan pilih kendaraan untuk perjalanan ini
             </DialogDescription>
           </DialogHeader>
           

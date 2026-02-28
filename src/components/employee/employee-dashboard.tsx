@@ -79,8 +79,8 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
       }, token);
 
       toast({
-        title: 'Pemesanan Berhasil',
-        description: 'Pemesanan driver telah dikirim. Driver akan ditentukan secara otomatis.',
+        title: 'Pesanan Berhasil Dibuat',
+        description: 'Notifikasi telah dikirim ke semua driver yang tersedia. Driver tercepat akan menerima pesanan Anda.',
       });
 
       setIsBookingModalOpen(false);

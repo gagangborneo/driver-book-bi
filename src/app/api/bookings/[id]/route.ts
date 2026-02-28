@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { BookingStatus, VehicleStatus } from '@prisma/client';
+import { notifyBookingAccepted } from '@/lib/whatsapp-notification';
 
 function getUserIdFromToken(authHeader: string | null): string | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
@@ -68,7 +69,13 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const currentBooking = await db.booking.findUnique({ where: { id } });
+    const currentBooking = await db.booking.findUnique({
+      where: { id },
+      include: {
+        employee: { select: { id: true, name: true, phone: true } },
+        driver: { select: { id: true, name: true } },
+      },
+    });
 
     if (!currentBooking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
@@ -82,8 +89,28 @@ export async function PUT(
 
     // Driver can update status with new workflow
     if (currentUser.role === 'DRIVER') {
-      // Driver can accept a pending booking assigned to them (sets vehicle)
-      if (currentBooking.status === BookingStatus.PENDING && newStatus === BookingStatus.APPROVED && currentBooking.driverId === currentUserId) {
+      // Driver can accept an unassigned pending booking (driverId = null)
+      if (currentBooking.status === BookingStatus.PENDING && newStatus === BookingStatus.APPROVED && currentBooking.driverId === null) {
+        // Verify driver is available
+        if (currentUser.driverStatus !== 'AVAILABLE') {
+          return NextResponse.json(
+            { error: 'Anda harus status AVAILABLE untuk menerima pesanan' },
+            { status: 400 }
+          );
+        }
+        updateData.status = BookingStatus.APPROVED;
+        updateData.driverId = currentUserId; // Assign booking to accepting driver
+        if (data.vehicleId) {
+          updateData.vehicleId = data.vehicleId;
+          // Update vehicle status to IN_USE
+          await db.vehicle.update({
+            where: { id: data.vehicleId },
+            data: { status: VehicleStatus.IN_USE },
+          });
+        }
+      }
+      // Driver can accept a pending booking assigned to them (original logic)
+      else if (currentBooking.status === BookingStatus.PENDING && newStatus === BookingStatus.APPROVED && currentBooking.driverId === currentUserId) {
         updateData.status = BookingStatus.APPROVED;
         if (data.vehicleId) {
           updateData.vehicleId = data.vehicleId;
@@ -96,7 +123,7 @@ export async function PUT(
       }
       
       // Driver can reject a pending booking assigned to them with reason
-      if (currentBooking.status === BookingStatus.PENDING && newStatus === BookingStatus.CANCELLED && currentBooking.driverId === currentUserId) {
+      if (currentBooking.status === BookingStatus.PENDING && newStatus === BookingStatus.CANCELLED && (currentBooking.driverId === currentUserId || currentBooking.driverId === null)) {
         updateData.status = BookingStatus.CANCELLED;
         if (data.rejectionReason) {
           updateData.rejectionReason = data.rejectionReason;
@@ -220,6 +247,25 @@ export async function PUT(
         vehicle: true,
       },
     });
+
+    // Send WhatsApp notification to employee if driver just accepted an unassigned booking
+    if (
+      currentUser.role === 'DRIVER' &&
+      currentBooking.status === BookingStatus.PENDING &&
+      currentBooking.driverId === null &&
+      updatedBooking.status === BookingStatus.APPROVED &&
+      updatedBooking.employee?.phone
+    ) {
+      try {
+        await notifyBookingAccepted(
+          updatedBooking.employee.phone as string,
+          currentUser.name
+        );
+      } catch (whatsappError) {
+        console.error('WhatsApp notification to employee failed:', whatsappError);
+        // Don't fail the booking update if WhatsApp notification fails
+      }
+    }
 
     // Parse location coordinates
     const bookingWithCoords = {

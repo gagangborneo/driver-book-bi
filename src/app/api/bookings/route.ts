@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { BookingStatus, VehicleStatus } from '@prisma/client';
+import { BookingStatus, VehicleStatus, DriverStatus } from '@prisma/client';
+import { notifyNewBooking } from '@/lib/whatsapp-notification';
 
 function getUserIdFromToken(authHeader: string | null): string | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
@@ -38,10 +39,15 @@ export async function GET(request: NextRequest) {
     if (user.role === 'EMPLOYEE') {
       whereClause.employeeId = userId;
     } else if (user.role === 'DRIVER') {
-      // Show pending bookings assigned to this driver, and bookings already accepted by this driver
+      // Show available pending bookings (not yet assigned) for available drivers
+      // AND bookings already assigned or accepted by this driver
       whereClause.OR = [
-        { status: BookingStatus.PENDING, driverId: userId },
-        { driverId: userId, status: { not: BookingStatus.PENDING } },
+        // Available pending bookings (no driver assigned yet) - only if driver is AVAILABLE
+        user.driverStatus === DriverStatus.AVAILABLE
+          ? { status: BookingStatus.PENDING, driverId: null }
+          : { id: '' }, // empty condition to exclude unassigned bookings if driver is not AVAILABLE
+        // Bookings assigned to or accepted by this driver
+        { driverId: userId },
       ];
     } else if (filterUserId) {
       const userRole = searchParams.get('userRole');
@@ -81,7 +87,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Create new booking
+// Create new booking with multi-driver notification system
 export async function POST(request: NextRequest) {
   try {
     const userId = getUserIdFromToken(request.headers.get('authorization'));
@@ -95,7 +101,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 });
     }
 
-    // Find all drivers and pick a random available one
+    // Find all available drivers (status != OFFLINE and no active bookings)
     const activeStatuses: BookingStatus[] = [
       BookingStatus.PENDING,
       BookingStatus.APPROVED,
@@ -119,25 +125,25 @@ export async function POST(request: NextRequest) {
       const vehicleInMaintenance = driver.vehicleAssignments.some(
         (v) => v.status === VehicleStatus.MAINTENANCE
       );
-      return !hasActiveOrPending && !vehicleInMaintenance;
+      // Driver must be AVAILABLE status and not have active/pending bookings and vehicle not in maintenance
+      const isAvailable = driver.driverStatus === DriverStatus.AVAILABLE;
+      return isAvailable && !hasActiveOrPending && !vehicleInMaintenance;
     });
 
     if (availableDrivers.length === 0) {
-      return NextResponse.json({ error: 'Semua driver sedang beroperasi saat ini. Silakan tunggu beberapa menit lagi dan coba kembali.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Tidak ada driver yang tersedia saat ini. Silakan coba beberapa saat lagi.' },
+        { status: 400 }
+      );
     }
 
-    // Pick a random available driver
-    const randomDriver = availableDrivers[Math.floor(Math.random() * availableDrivers.length)];
-
-    const assignedVehicle = await db.vehicle.findFirst({
-      where: { assignedToId: randomDriver.id },
-    });
-
+    // Create a pending booking without assigning to any driver yet
+    // This allows first-come-first-serve for available drivers
     const newBooking = await db.booking.create({
       data: {
         employeeId: userId,
-        driverId: randomDriver.id,
-        vehicleId: assignedVehicle?.id || null,
+        driverId: null, // No driver assigned yet - will be assigned when driver accepts
+        vehicleId: null,
         pickupLocation,
         destination,
         bookingDate: new Date(bookingDate),
@@ -152,6 +158,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Send WhatsApp notification to driver group
+    try {
+      await notifyNewBooking(pickupLocation, destination, bookingTime);
+    } catch (whatsappError) {
+      console.error('WhatsApp notification failed:', whatsappError);
+      // Don't fail the booking creation if WhatsApp notification fails
+    }
+
     // Parse location coordinates
     const bookingWithCoords = {
       ...newBooking,
@@ -160,7 +174,10 @@ export async function POST(request: NextRequest) {
       currentCoords: newBooking.currentCoords ? JSON.parse(newBooking.currentCoords) : null,
     };
 
-    return NextResponse.json({ booking: bookingWithCoords });
+    return NextResponse.json({
+      booking: bookingWithCoords,
+      message: 'Pesanan driver telah dibuat. Notifikasi telah dikirim ke driver yang tersedia.',
+    });
   } catch (error) {
     console.error('Create booking error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
