@@ -131,7 +131,7 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
       icon: BarChart3,
       label: 'Dashboard Monitoring',
       color: 'bg-indigo-600',
-      action: () => window.open('https://app.powerbi.com/view?r=eyJrIjoiMDE5MGNiOWItMzI1NS00MTZlLTliN2MtNTZiODcwZjYxMDM0IiwidCI6ImNhMzc0OTJlLWY0MTAtNDI3Yi1hYjM5LTA1NWJkYzE4Y2UwMiIsImMiOjEwfQ%3D%3D', '_blank', 'noopener,noreferrer'),
+      action: () => router.push('/employee/monitoring'),
     },
   ];
 
