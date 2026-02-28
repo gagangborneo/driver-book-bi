@@ -8,13 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Lock } from 'lucide-react';
+import { type UserRole } from '@/lib/auth-store';
 
 interface ChangePasswordProps {
   userId: string;
   token: string;
+  role: UserRole;
 }
 
-export function ChangePassword({ userId, token }: ChangePasswordProps) {
+export function ChangePassword({ userId, token, role }: ChangePasswordProps) {
+  const isSimplifiedMode = role === 'EMPLOYEE' || role === 'DRIVER';
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -28,13 +31,26 @@ export function ChangePassword({ userId, token }: ChangePasswordProps) {
     e.preventDefault();
 
     // Validation
-    if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
-      toast({
-        title: 'Gagal',
-        description: 'Semua field harus diisi',
-        variant: 'destructive',
-      });
-      return;
+    if (isSimplifiedMode) {
+      // For employee and driver: only require newPassword
+      if (!formData.newPassword || !formData.confirmPassword) {
+        toast({
+          title: 'Gagal',
+          description: 'Semua field harus diisi',
+          variant: 'destructive',
+        });
+        return;
+      }
+    } else {
+      // For admin: require all three fields
+      if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
+        toast({
+          title: 'Gagal',
+          description: 'Semua field harus diisi',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     if (formData.newPassword.length < 6) {
@@ -55,7 +71,7 @@ export function ChangePassword({ userId, token }: ChangePasswordProps) {
       return;
     }
 
-    if (formData.currentPassword === formData.newPassword) {
+    if (!isSimplifiedMode && formData.currentPassword === formData.newPassword) {
       toast({
         title: 'Gagal',
         description: 'Password baru harus berbeda dengan password saat ini',
@@ -66,12 +82,14 @@ export function ChangePassword({ userId, token }: ChangePasswordProps) {
 
     setIsLoading(true);
     try {
+      const payload: any = { password: formData.newPassword };
+      if (!isSimplifiedMode) {
+        payload.currentPassword = formData.currentPassword;
+      }
+
       await api(`/users/${userId}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          currentPassword: formData.currentPassword,
-          password: formData.newPassword,
-        }),
+        body: JSON.stringify(payload),
       }, token);
 
       toast({
@@ -126,17 +144,19 @@ export function ChangePassword({ userId, token }: ChangePasswordProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Password Saat Ini</Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              value={formData.currentPassword}
-              onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-              placeholder="Masukkan password saat ini"
-              disabled={isLoading}
-            />
-          </div>
+          {!isSimplifiedMode && (
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Password Saat Ini</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={formData.currentPassword}
+                onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                placeholder="Masukkan password saat ini"
+                disabled={isLoading}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="newPassword">Password Baru</Label>

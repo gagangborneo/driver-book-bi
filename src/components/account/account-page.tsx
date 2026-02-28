@@ -147,7 +147,7 @@ export function AccountPage({ token, user, onUserUpdate }: AccountPageProps) {
       </Card>
 
       {/* Change Password Card */}
-      <ChangePassword userId={user.id} token={token} />
+      <ChangePassword userId={user.id} token={token} role={user.role} />
 
       {/* Logout Card */}
       <Card className="border-red-200">
