@@ -5,7 +5,6 @@ import { api } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Car, MapPin, Flag, Calendar, Clock, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -73,104 +72,108 @@ export function EmployeeHistory({ token }: EmployeeHistoryProps) {
       </div>
 
       {isLoading ? (
-        <LoadingSkeleton count={3} height="h-32" />
+        <LoadingSkeleton count={3} height="h-24" />
       ) : bookings.length === 0 ? (
-        <div className="text-center py-12">
-          <Car className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Belum ada riwayat perjalanan</p>
+        <div className="text-center py-8">
+          <Car className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">Belum ada riwayat perjalanan</p>
         </div>
       ) : (
-        <ScrollArea className="h-[calc(100vh-280px)]">
-          <div className="space-y-3 pr-4">
-            {bookings.map((booking) => (
-              <Card 
-                key={booking.id as string} 
-                className={cn(
-                  'cursor-pointer hover:shadow-md transition-shadow',
-                  (booking.status as string) === 'CANCELLED' && 'opacity-60'
-                )}
-                onClick={() => {
-                  setSelectedBooking(booking);
-                  setIsDetailModalOpen(true);
-                }}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Car className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">
-                          {booking.driver ? (booking.driver as Record<string, unknown>).name as string : 'Menunggu Driver'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {booking.vehicle 
-                            ? `${(booking.vehicle as Record<string, unknown>).brand as string} - ${(booking.vehicle as Record<string, unknown>).plateNumber as string}` 
-                            : '-'}
-                        </p>
-                      </div>
+        <div className="space-y-2">
+          {bookings.map((booking) => (
+            <Card 
+              key={booking.id as string} 
+              className={cn(
+                'cursor-pointer hover:shadow-md transition-shadow',
+                (booking.status as string) === 'CANCELLED' && 'opacity-60'
+              )}
+              onClick={() => {
+                setSelectedBooking(booking);
+                setIsDetailModalOpen(true);
+              }}
+            >
+              <CardContent className="px-2">
+                <div className="flex items-start justify-between gap-2 mb-0">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="p-1.5 bg-primary/10 rounded-lg flex-shrink-0">
+                      <Car className="h-4 w-4 text-primary" />
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">
+                        {booking.driver ? (booking.driver as Record<string, unknown>).name as string : 'Menunggu Driver'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {booking.vehicle 
+                          ? `${(booking.vehicle as Record<string, unknown>).brand as string} - ${(booking.vehicle as Record<string, unknown>).plateNumber as string}` 
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
                     <StatusBadgeBooking status={booking.status as string} />
                   </div>
-                  
-                  <div className="space-y-2 text-sm mb-3">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4 text-green-500" />
-                      <span>{booking.pickupLocation as string}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Flag className="h-4 w-4 text-red-500" />
-                      <span>{booking.destination as string}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>{formatDate(booking.bookingDate as string)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{booking.bookingTime as string}</span>
-                      </div>
-                    </div>
-                  </div>
+                </div>
 
-                  <div className="flex gap-2">
-                    {(booking.status as string) === 'PENDING' && (
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        className="w-full"
-                        disabled={cancellingId === booking.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCancelBooking(booking.id as string);
-                        }}
-                      >
-                        {cancellingId === booking.id ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                            Membatalkan...
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Batalkan Pesanan
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    {(booking.status as string) !== 'PENDING' && (
-                      <p className="text-xs text-muted-foreground w-full text-center py-2">
-                        Klik untuk melihat detail
-                      </p>
-                    )}
+                <hr className="my-2" />
+                
+                <div className="space-y-1 mb-2 flex items-center justify-between">
+                  <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                      <span className="truncate">{booking.pickupLocation as string}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Flag className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                      <span className="truncate">{booking.destination as string}</span>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
+                  <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{formatDate(booking.bookingDate as string)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{booking.bookingTime as string} WITA</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  {(booking.status as string) === 'PENDING' && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="w-full text-xs h-8"
+                      disabled={cancellingId === booking.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCancelBooking(booking.id as string);
+                      }}
+                    >
+                      {cancellingId === booking.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1.5" />
+                          Membatalkan...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                          Batalkan
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {(booking.status as string) !== 'PENDING' && (
+                    <p className="text-xs w-full text-center py-1 text-gray-800">
+                      Klik untuk detail
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       {/* Detail Modal */}

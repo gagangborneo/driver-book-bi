@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Car, Users, LogOut, Home, History, User as UserIcon,  
-  FileText, Trophy, Building 
+  FileText, Trophy 
 } from 'lucide-react';
 
 // LogOut is kept for desktop nav usage
@@ -62,8 +62,8 @@ export function Navigation({ role, currentPath, onLogout, user }: NavigationProp
       <header className="hidden md:flex fixed top-0 left-0 right-0 h-16 bg-white border-b z-50 items-center justify-between px-6">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <Building className="h-6 w-6 text-slate-700" />
-            <span className="font-bold text-lg">Bank Indonesia</span>
+            <img src="/logo-si-lamin.png" alt="SI-LAMIN" className="h-8 w-8" />
+            <span className="font-bold text-lg">SI-LAMIN</span>
           </div>
           <nav className="flex items-center gap-1">
             {navItems.map((item) => (
@@ -103,8 +103,8 @@ export function Navigation({ role, currentPath, onLogout, user }: NavigationProp
       {/* Mobile Header */}
       <header className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b z-50 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <Building className="h-5 w-5 text-slate-700" />
-          <span className="font-bold">Bank Indonesia</span>
+          <img src="/logo-si-lamin.png" alt="SI-LAMIN" className="h-6 w-6" />
+          <span className="font-bold">SI-LAMIN</span>
         </div>
         <div className="flex items-center gap-2">
           <Avatar className="h-7 w-7">
@@ -122,9 +122,9 @@ export function Navigation({ role, currentPath, onLogout, user }: NavigationProp
             key={item.href}
             href={item.href}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 py-2 px-3 min-w-[64px] rounded-xl transition-all',
+              'flex flex-col items-center justify-center gap-1 py-2 px-3 min-w-16 rounded-xl transition-all',
               isActive(item.href) 
-                ? 'text-white bg-gradient-to-b from-blue-500 to-blue-600 shadow-md shadow-blue-500/30 scale-105' 
+                ? 'text-white bg-linear-to-b from-blue-500 to-blue-600 shadow-md shadow-blue-500/30 scale-105' 
                 : 'text-slate-400 hover:text-slate-600 active:scale-95'
             )}
           >

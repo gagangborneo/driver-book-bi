@@ -52,7 +52,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold">Dashboard Admin</h2>
-        <p className="text-muted-foreground text-sm">Monitoring sistem driver booking</p>
+        <p className="text-muted-foreground text-sm">Monitoring sistem layanan manajemen intern</p>
       </div>
 
       {/* Stats Grid */}

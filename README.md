@@ -1,6 +1,6 @@
-# 🚗 Driver Booking Application - Bank Indonesia
+# 🚗 SI-LAMIN - Sistem Informasi Layanan Manajemen Intern
 
-Driver booking management and employee travel history recording system for Bank Indonesia built with modern and production-ready technologies.
+Sistem Informasi Layanan Manajemen Intern untuk pengelolaan pemesanan driver dan pencatatan riwayat perjalanan karyawan yang dibangun dengan teknologi modern dan production-ready.
 
 Developed by: **gagangborneo**
 
@@ -45,7 +45,7 @@ This application is built with cutting-edge technologies:
 
 ## 🎯 Core Application Features
 
-- **🚗 Driver Booking** - Driver booking system for employees
+- **🚗 Layanan Driver** - Sistem pemesanan driver untuk karyawan
 - **📝 Travel History** - Detailed recording of each trip
 - **📊 Analytics Dashboard** - Reports and service usage statistics
 - **🔒 Data Security** - Full TypeScript configuration with Zod validation

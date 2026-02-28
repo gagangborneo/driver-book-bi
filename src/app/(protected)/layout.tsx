@@ -46,7 +46,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         onLogout={handleLogout}
         user={user}
       />
-      <main className="flex-1 pt-14 md:pt-16 pb-20 md:pb-6 px-4 max-w-4xl mx-auto w-full">
+      <main className="flex-1 pt-20 pb-20 md:pb-6 px-4 max-w-7xl mx-auto w-full">
         {children}
       </main>
     </div>

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Car, Users, UserCog, Building, AlertCircle } from 'lucide-react';
+import { Car, Users, UserCog, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LoginPageProps {
@@ -53,15 +53,15 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-linear-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="w-full max-w-md space-y-6">
         {/* Logo */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <Building className="h-10 w-10 text-white" />
+            <img src="/logo-si-lamin.png" alt="SI-LAMIN Logo" className="h-16 bg-white p-2 rounded-lg" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Bank Indonesia</h1>
-          <p className="text-slate-400">Driver Booking System</p>
+          <h1 className="text-2xl font-bold text-white">SI-LAMIN</h1>
+          <p className="text-slate-400">Sistem Informasi Layanan Manajemen Intern</p>
         </div>
 
         {/* Login Card */}

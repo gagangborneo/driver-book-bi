@@ -14,16 +14,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bank Indonesia - Driver Booking System",
-  description: "Sistem Booking Driver Bank Indonesia untuk memudahkan perjalanan karyawan dan driver dengan manajemen riwayat perjalanan yang baik.",
-  keywords: ["Bank Indonesia", "Driver Booking", "Transportation", "Corporate Travel"],
-  authors: [{ name: "Bank Indonesia" }],
+  title: "SI-LAMIN - Sistem Informasi Layanan Manajemen Intern",
+  description: "Sistem Informasi Layanan Manajemen Intern untuk memudahkan perjalanan karyawan dan driver dengan manajemen riwayat perjalanan yang baik.",
+  keywords: ["SI-LAMIN", "Layanan Manajemen Intern", "Transportation", "Corporate Travel"],
+  authors: [{ name: "SI-LAMIN" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.png",
+    apple: "/logo-si-lamin.png",
+    shortcut: "/favicon.png",
   },
   openGraph: {
-    title: "Bank Indonesia - Driver Booking System",
-    description: "Sistem Booking Driver Bank Indonesia",
+    title: "SI-LAMIN - Sistem Informasi Layanan Manajemen Intern",
+    description: "Sistem Informasi Layanan Manajemen Intern",
     type: "website",
   },
 };

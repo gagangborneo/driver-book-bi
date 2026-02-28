@@ -1,4 +1,4 @@
-// API helper for Bank Indonesia Driver Booking
+// API helper for SI-LAMIN
 export const api = async (endpoint: string, options: RequestInit = {}, token?: string) => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
