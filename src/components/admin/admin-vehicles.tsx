@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -201,8 +201,7 @@ export function AdminVehicles({ token }: AdminVehiclesProps) {
       {isLoading ? (
         <LoadingSkeleton count={3} height="h-24" />
       ) : (
-        <ScrollArea className="h-[calc(100vh-280px)]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {vehicles.map((vehicle) => (
               <Card key={vehicle.id as string}>
                 <CardContent className="p-4">
@@ -247,7 +246,6 @@ export function AdminVehicles({ token }: AdminVehiclesProps) {
               </Card>
             ))}
           </div>
-        </ScrollArea>
       )}
 
       {/* Add Vehicle Modal */}

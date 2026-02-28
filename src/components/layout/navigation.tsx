@@ -56,6 +56,11 @@ export function Navigation({ role, currentPath, onLogout, user }: NavigationProp
     return currentPath.startsWith(href);
   };
 
+  // For admin role, only show in non-admin routes (navigation handled by admin/layout.tsx)
+  if (role === 'ADMIN') {
+    return null;
+  }
+
   return (
     <>
       {/* Desktop Navigation */}

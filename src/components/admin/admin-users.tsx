@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -317,8 +317,7 @@ export function AdminUsers({ token }: AdminUsersProps) {
       {isLoading ? (
         <LoadingSkeleton count={3} />
       ) : (
-        <ScrollArea className="h-[calc(100vh-320px)]">
-          <div className="space-y-3 pr-4">
+        <div className="space-y-3">
             {users.map((user) => (
               <Card 
                 key={user.id as string}
@@ -402,7 +401,6 @@ export function AdminUsers({ token }: AdminUsersProps) {
               </Card>
             ))}
           </div>
-        </ScrollArea>
       )}
 
       {/* Add User Modal */}
@@ -564,8 +562,7 @@ export function AdminUsers({ token }: AdminUsersProps) {
                     <p className="text-muted-foreground">Belum ada riwayat perjalanan</p>
                   </div>
                 ) : (
-                  <ScrollArea className="h-[300px]">
-                    <div className="space-y-3 pr-4">
+                  <div className="space-y-3">
                       {userBookings.map((booking) => (
                         <Card key={booking.id as string} className="border-slate-200">
                           <CardContent className="p-3">
@@ -609,8 +606,7 @@ export function AdminUsers({ token }: AdminUsersProps) {
                           </CardContent>
                         </Card>
                       ))}
-                    </div>
-                  </ScrollArea>
+                  </div>
                 )}
               </div>
             </div>

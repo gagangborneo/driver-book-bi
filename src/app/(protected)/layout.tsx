@@ -38,6 +38,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     router.replace('/login');
   };
 
+  // Admin routes have their own layout
+  if (pathname.startsWith('/admin')) {
+    return children;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navigation
