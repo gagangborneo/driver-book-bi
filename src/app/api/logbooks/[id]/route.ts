@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { UserRole, LogBookType } from '@prisma/client';
+import { verifyToken } from '@/lib/auth-utils';
 
 function getUserIdFromToken(authHeader: string | null): string | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  try {
-    const token = authHeader.split(' ')[1];
-    const decoded = Buffer.from(token, 'base64').toString();
-    return decoded.split(':')[0];
-  } catch {
-    return null;
-  }
+  const token = authHeader.split(' ')[1];
+  const payload = verifyToken(token);
+  return payload?.userId || null;
 }
 
 export async function PUT(

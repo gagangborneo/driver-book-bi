@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { verifyToken } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,10 +14,14 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
-    
-    // Decode simple token (base64 of userId:timestamp)
-    const decoded = Buffer.from(token, 'base64').toString();
-    const userId = decoded.split(':')[0];
+    const payload = verifyToken(token);
+    if (!payload?.userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    const userId = payload.userId;
     
     const user = await db.user.findUnique({
       where: { id: userId },
