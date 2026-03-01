@@ -74,15 +74,23 @@ export async function PUT(
     const data = await request.json();
     const updateData: Record<string, unknown> = {};
 
-    // If password change is requested, verify current password first
+    // If password change is requested
     if (data.password) {
-      if (!data.currentPassword) {
-        return NextResponse.json({ error: 'Password saat ini diperlukan untuk mengubah password' }, { status: 400 });
-      }
+      // Admin can change any user's password without current password
+      // Regular users must provide current password when changing their own
+      const isAdmin = currentUser?.role === UserRole.ADMIN;
+      const isOwnProfile = currentUserId === id;
+      
+      if (!isAdmin && isOwnProfile) {
+        // Regular user changing own password - require current password
+        if (!data.currentPassword) {
+          return NextResponse.json({ error: 'Password saat ini diperlukan untuk mengubah password' }, { status: 400 });
+        }
 
-      const isPasswordValid = await bcrypt.compare(data.currentPassword, existingUser.password);
-      if (!isPasswordValid) {
-        return NextResponse.json({ error: 'Password saat ini tidak sesuai' }, { status: 400 });
+        const isPasswordValid = await bcrypt.compare(data.currentPassword, existingUser.password);
+        if (!isPasswordValid) {
+          return NextResponse.json({ error: 'Password saat ini tidak sesuai' }, { status: 400 });
+        }
       }
 
       if (data.password.length < 6) {
