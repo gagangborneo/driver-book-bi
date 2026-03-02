@@ -51,8 +51,8 @@ export function TravelDetailModal({
             token={token}
           />
 
-          {/* Rating Form for Completed Trip */}
-          {(booking.status as string) === 'COMPLETED' && !booking.rating && (
+          {/* Rating Form for Completed Trip - Only for employees (showDriver = true) */}
+          {showDriver && (booking.status as string) === 'COMPLETED' && !booking.rating && (
             <TripRating 
               bookingId={booking.id as string}
               token={token}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { BookingStatus, VehicleStatus } from '@prisma/client';
-import { notifyBookingAccepted } from '@/lib/whatsapp-notification';
+import { notifyBookingAccepted, notifyBookingCompleted, notifyJourneyCompleted } from '@/lib/whatsapp-notification';
 import { verifyToken } from '@/lib/auth-utils';
 
 function getUserIdFromToken(authHeader: string | null): string | null {
@@ -21,6 +21,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const user = await db.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
     const booking = await db.booking.findUnique({
       where: { id },
@@ -33,6 +38,16 @@ export async function GET(
 
     if (!booking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+
+    // Allow access if: user is employee/driver who created/assigned to booking, or user is admin
+    const isAuthorized = 
+      user.role === 'ADMIN' ||
+      booking.employeeId === userId ||
+      booking.driverId === userId;
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized to view this booking' }, { status: 403 });
     }
 
     // Parse location coordinates
@@ -184,7 +199,18 @@ export async function PUT(
       }
     }
 
-    // Employee can cancel their own booking
+    // Driver status updates only - no rating allowed
+    if (currentUser.role === 'DRIVER') {
+      if (currentBooking.driverId !== currentUserId) {
+        return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengubah pesanan ini' }, { status: 403 });
+      }
+      // Drivers are not allowed to add ratings
+      if (data.rating) {
+        return NextResponse.json({ error: 'Driver tidak diizinkan memberi rating' }, { status: 403 });
+      }
+    }
+
+    // Employee can cancel their own booking and add ratings
     if (currentUser.role === 'EMPLOYEE' && currentBooking.employeeId === currentUserId) {
       if (newStatus === BookingStatus.CANCELLED && currentBooking.status === BookingStatus.PENDING) {
         updateData.status = BookingStatus.CANCELLED;
@@ -204,7 +230,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengubah pesanan ini' }, { status: 403 });
     }
 
-    // Admin can update anything
+    // Admin can update most fields (but NOT rating)
     if (currentUser.role === 'ADMIN') {
       if (data.status) updateData.status = data.status;
       if (data.driverId) updateData.driverId = data.driverId;
@@ -221,8 +247,10 @@ export async function PUT(
       if (data.returningAt) updateData.returningAt = new Date(data.returningAt);
       if (data.completedAt) updateData.completedAt = new Date(data.completedAt);
       if (data.rejectionReason) updateData.rejectionReason = data.rejectionReason;
-      if (data.rating) updateData.rating = data.rating;
-      if (data.ratingComment) updateData.ratingComment = data.ratingComment;
+      // Admin is not allowed to add ratings - only employees can rate
+      if (data.rating || data.ratingComment) {
+        return NextResponse.json({ error: 'Admin tidak diizinkan memberi rating' }, { status: 403 });
+      }
     }
 
     // If no updates were made, return error
@@ -260,6 +288,35 @@ export async function PUT(
         );
       } catch (whatsappError) {
         console.error('WhatsApp notification to employee failed:', whatsappError);
+        // Don't fail the booking update if WhatsApp notification fails
+      }
+    }
+
+    // Send WhatsApp notification when booking is completed
+    if (
+      currentUser.role === 'DRIVER' &&
+      currentBooking.status !== BookingStatus.COMPLETED &&
+      updatedBooking.status === BookingStatus.COMPLETED &&
+      updatedBooking.employee?.phone &&
+      updatedBooking.driver?.name
+    ) {
+      try {
+        // Notify employee about completion
+        await notifyBookingCompleted(
+          updatedBooking.employee.phone as string,
+          updatedBooking.driver.name,
+          updatedBooking.pickupLocation,
+          updatedBooking.destination
+        );
+        
+        // Also notify driver group about completion
+        await notifyJourneyCompleted(
+          updatedBooking.driver.name,
+          updatedBooking.pickupLocation,
+          updatedBooking.destination
+        );
+      } catch (whatsappError) {
+        console.error('WhatsApp notification on completion failed:', whatsappError);
         // Don't fail the booking update if WhatsApp notification fails
       }
     }
