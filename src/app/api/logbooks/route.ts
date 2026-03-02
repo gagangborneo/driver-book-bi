@@ -23,6 +23,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check authorization
+    if (user.role !== UserRole.DRIVER && user.role !== UserRole.ADMIN) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const driverId = searchParams.get('driverId');
     const vehicleId = searchParams.get('vehicleId');
@@ -32,9 +37,13 @@ export async function GET(request: NextRequest) {
 
     // Filter by user role
     if (user.role === UserRole.DRIVER) {
+      // Drivers can only see their own logbooks
       whereClause.driverId = userId;
-    } else if (driverId) {
-      whereClause.driverId = driverId;
+    } else if (user.role === UserRole.ADMIN) {
+      // Admins can see all logbooks, with optional filters
+      if (driverId) {
+        whereClause.driverId = driverId;
+      }
     }
 
     if (vehicleId) {

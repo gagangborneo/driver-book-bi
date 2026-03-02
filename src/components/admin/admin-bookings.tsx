@@ -11,11 +11,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Car, MapPin, Flag, Calendar, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Car, MapPin, Flag, Calendar, Clock, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LoadingSkeleton } from '@/components/shared/loading';
 import { TravelDetailModal } from '@/components/shared/travel-detail-modal';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 interface AdminBookingsProps {
   token: string;
@@ -32,6 +34,11 @@ export function AdminBookings({ token }: AdminBookingsProps) {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<'10' | '25' | '50'>('10');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteBookingId, setDeleteBookingId] = useState<string | null>(null);
+  const [deleteBookingInfo, setDeleteBookingInfo] = useState<Record<string, unknown> | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchBookings();
@@ -57,6 +64,41 @@ export function AdminBookings({ token }: AdminBookingsProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeleteBooking = async () => {
+    if (!deleteBookingId) return;
+
+    setIsSubmitting(true);
+    try {
+      await api(`/bookings/${deleteBookingId}`, {
+        method: 'DELETE',
+      }, token);
+
+      toast({
+        title: 'Berhasil',
+        description: 'Perjalanan berhasil dihapus',
+      });
+
+      setShowDeleteModal(false);
+      setDeleteBookingId(null);
+      setDeleteBookingInfo(null);
+      fetchBookings();
+    } catch (error) {
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openDeleteModal = (booking: Record<string, unknown>) => {
+    setDeleteBookingId(booking.id as string);
+    setDeleteBookingInfo(booking);
+    setShowDeleteModal(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -203,30 +245,48 @@ export function AdminBookings({ token }: AdminBookingsProps) {
             <Card 
               key={booking.id as string}
               className={cn('cursor-pointer transition-shadow', 'hover:shadow-md')}
-              onClick={() => {
-                setSelectedBooking(booking);
-                setIsDetailModalOpen(true);
-              }}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1">
                     <Avatar>
                       <AvatarFallback>
                         {String((booking.employee as Record<string, unknown>).name).charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => {
+                        setSelectedBooking(booking);
+                        setIsDetailModalOpen(true);
+                      }}
+                    >
                       <p className="font-medium">{(booking.employee as Record<string, unknown>).name as string}</p>
                       <p className="text-sm text-muted-foreground">Karyawan</p>
                     </div>
                   </div>
-                  {getStatusBadge(booking.status as string)}
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(booking.status as string)}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => openDeleteModal(booking)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <hr className="my-2" />
                 
-                <div className="space-y-1 mb-2 flex items-center justify-between">
+                <div 
+                  className="space-y-1 mb-2 flex items-center justify-between cursor-pointer"
+                  onClick={() => {
+                    setSelectedBooking(booking);
+                    setIsDetailModalOpen(true);
+                  }}
+                >
                   <div className="flex flex-col gap-2 text-xs text-muted-foreground">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <MapPin className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
@@ -303,6 +363,57 @@ export function AdminBookings({ token }: AdminBookingsProps) {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus Perjalanan</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin menghapus perjalanan ini? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteBookingInfo && (
+            <div className="space-y-3 py-4 px-0">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Karyawan</p>
+                  <p className="font-semibold">{(deleteBookingInfo.employee as Record<string, unknown>).name as string}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Status</p>
+                  <p>{getStatusBadge(deleteBookingInfo.status as string)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Lokasi Awal</p>
+                  <p className="font-semibold text-sm">{deleteBookingInfo.pickupLocation as string}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Tujuan</p>
+                  <p className="font-semibold text-sm">{deleteBookingInfo.destination as string}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-sm">Tanggal: {formatDate(deleteBookingInfo.bookingDate as string)} - {deleteBookingInfo.bookingTime as string} WITA</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={isSubmitting}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteBooking}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Menghapus...' : 'Hapus'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <TravelDetailModal 
         booking={selectedBooking}

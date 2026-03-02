@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, Users, User, Truck, Settings, FileText, MessageSquare } from 'lucide-react';
+import { Car, Users, User, Truck, Settings, FileText, MessageSquare, BookOpen } from 'lucide-react';
 import { QuickActionsGrid } from '@/components/shared/quick-actions-grid';
 
 interface AdminDashboardProps {
@@ -45,6 +45,7 @@ export function AdminDashboard({ token }: AdminDashboardProps) {
     { icon: Users, label: 'Data User', color: 'bg-blue-500', action: () => router.push('/admin/users') },
     { icon: Car, label: 'Kendaraan', color: 'bg-green-500', action: () => router.push('/admin/vehicles') },
     { icon: FileText, label: 'Perjalanan', color: 'bg-orange-500', action: () => router.push('/admin/bookings') },
+    { icon: BookOpen, label: 'Catatan Perjalanan', color: 'bg-purple-500', action: () => router.push('/admin/logbooks') },
     { icon: MessageSquare, label: 'WhatsApp', color: 'bg-green-600', action: () => router.push('/admin/whatsapp') },
   ];
 
