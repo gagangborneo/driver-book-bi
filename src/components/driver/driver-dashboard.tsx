@@ -55,7 +55,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
   const [pendingOdometerValue, setPendingOdometerValue] = useState<number | null>(null);
   const [pendingOdometerAction, setPendingOdometerAction] = useState<'depart' | 'complete' | null>(null);
   const [logBookForm, setLogBookForm] = useState({
-    vehicleId: '',
+    vehicleId: '__select__',
     type: 'WASHING',
     description: '',
     date: new Date().toISOString().split('T')[0],
@@ -137,6 +137,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
     if (!activeBooking) return;
 
     setIsRequestingGPS(true);
+    setLoadingAction(action);
     try {
       const statusMap: Record<string, string> = {
         depart: 'DEPARTED',
@@ -203,11 +204,15 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
       }
 
       // Update booking status
-      setLoadingAction(action);
-      await api(`/bookings/${activeBooking.id}`, {
+      const response = await api(`/bookings/${activeBooking.id}`, {
         method: 'PUT',
         body: JSON.stringify(gpsData),
       }, token);
+
+      // Verify the response is successful
+      if (!response || !response.booking) {
+        throw new Error('Gagal memperbarui status perjalanan. Silakan coba lagi.');
+      }
 
       const actionMessages: Record<string, string> = {
         depart: 'dimulai - sedang menuju lokasi penjemputan',
@@ -221,25 +226,38 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
         description: `Pesanan telah ${actionMessages[action]}`,
       });
 
-      // Close dialog and refresh
+      // Close dialogs and refresh
       setShowGPSPermissionDialog(false);
       setShowOdometerModal(false);
       setGPSAction(null);
       setPendingOdometerAction(null);
       setPendingOdometerValue(null);
       setOdometerValue('');
-      setIsRequestingGPS(false);
-      setLoadingAction(null);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      fetchData();
+      
+      // Wait a moment and refresh data
+      await new Promise(resolve => setTimeout(resolve, 800));
+      await fetchData();
     } catch (error) {
-      setLoadingAction(null);
-      setIsRequestingGPS(false);
+      console.error('GPS action error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan saat memperbarui status perjalanan';
+      
       toast({
         title: 'Gagal',
-        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        description: errorMessage,
         variant: 'destructive',
       });
+
+      // Ensure modals are closed on error for complete action to prevent looping
+      if (action === 'complete') {
+        setShowOdometerModal(false);
+        setShowGPSPermissionDialog(false);
+        setOdometerValue('');
+        setPendingOdometerAction(null);
+        setPendingOdometerValue(null);
+      }
+    } finally {
+      setIsRequestingGPS(false);
+      setLoadingAction(null);
     }
   };
 
@@ -419,9 +437,30 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
   const handleLogBookSubmit = async () => {
     try {
+      if (!logBookForm.vehicleId || logBookForm.vehicleId === '__select__') {
+        toast({
+          title: 'Gagal',
+          description: 'Silakan pilih kendaraan',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!logBookForm.description.trim()) {
+        toast({
+          title: 'Gagal',
+          description: 'Silakan isi deskripsi',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       await api('/logbooks', {
         method: 'POST',
-        body: JSON.stringify(logBookForm),
+        body: JSON.stringify({
+          ...logBookForm,
+          vehicleId: logBookForm.vehicleId === '__select__' ? '' : logBookForm.vehicleId,
+        }),
       }, token);
 
       toast({
@@ -431,7 +470,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
       setShowLogBookModal(false);
       setLogBookForm({
-        vehicleId: '',
+        vehicleId: '__select__',
         type: 'WASHING',
         description: '',
         date: new Date().toISOString().split('T')[0],
@@ -782,21 +821,28 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Kendaraan</Label>
-              <Select 
-                value={logBookForm.vehicleId} 
-                onValueChange={(value) => setLogBookForm({ ...logBookForm, vehicleId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih kendaraan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map((v) => (
-                    <SelectItem key={v.id as string} value={v.id as string}>
-                      {v.brand as string} - {v.plateNumber as string}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {vehicles.length === 0 ? (
+                <div className="h-10 w-full px-3 py-2 border border-input rounded-md bg-muted text-muted-foreground text-sm flex items-center">
+                  Tidak ada kendaraan tersedia
+                </div>
+              ) : (
+                <Select 
+                  value={logBookForm.vehicleId} 
+                  onValueChange={(value) => setLogBookForm({ ...logBookForm, vehicleId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih kendaraan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__select__">Pilih kendaraan</SelectItem>
+                    {vehicles.map((v) => (
+                      <SelectItem key={v.id as string} value={v.id as string}>
+                        {v.brand as string} - {v.plateNumber as string}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <div className="space-y-2">
