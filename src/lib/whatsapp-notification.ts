@@ -140,3 +140,57 @@ export async function notifyBookingAccepted(
   const message = buildBookingAcceptedMessage(driverName);
   return sendWhatsAppToNumber(phoneNumber, message);
 }
+
+/**
+ * Build booking completed message
+ */
+export function buildBookingCompletedMessage(
+  driverName: string,
+  pickupLocation: string,
+  destination: string,
+  appUrl: string = 'https://driver-book-bi.vercel.app/'
+): string {
+  return `✅ Perjalanan Selesai!
+
+Driver: ${driverName}
+
+📍 Dari: ${pickupLocation}
+📍 Ke: ${destination}
+
+Silakan berikan rating di aplikasi: ${appUrl}`;
+}
+
+/**
+ * Send booking completed notification to employee
+ */
+export async function notifyBookingCompleted(
+  phoneNumber: string,
+  driverName: string,
+  pickupLocation: string,
+  destination: string
+): Promise<boolean> {
+  if (!phoneNumber) {
+    console.warn('Employee phone number not available, skipping WhatsApp notification');
+    return false;
+  }
+
+  const message = buildBookingCompletedMessage(driverName, pickupLocation, destination);
+  return sendWhatsAppToNumber(phoneNumber, message);
+}
+
+/**
+ * Send journey completion notification to WhatsApp group
+ */
+export async function notifyJourneyCompleted(
+  driverName: string,
+  pickupLocation: string,
+  destination: string
+): Promise<boolean> {
+  const message = `🎉 Perjalanan Selesai!
+
+Driver: ${driverName}
+📍 Dari: ${pickupLocation}
+📍 Ke: ${destination}`;
+  
+  return sendWhatsAppGroupNotification(message);
+}
