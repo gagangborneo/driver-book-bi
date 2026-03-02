@@ -31,10 +31,10 @@ docker:
       ports:
         - "3000:3000"
 
-    mysql:
+    postgres:
       restart: always
       ports:
-        - "3306:3306"
+        - "5432:5432"
 
 # Deployment configuration
 deployment:
@@ -46,7 +46,7 @@ deployment:
       critical: true
       
     - name: Backup database
-      script: mysqldump -h ${DB_HOST} -u ${DB_USER} -p${DB_PASSWORD} driver > .backups/backup_$(date +\%Y\%m\%d_\%H\%M\%S).sql
+      script: PGPASSWORD=${POSTGRES_PASSWORD} pg_dump -h ${DB_HOST} -U ${POSTGRES_USER} -d ${POSTGRES_DB} > .backups/backup_$(date +\%Y\%m\%d_\%H\%M\%S).sql
       timeout: 600
       critical: true
 
@@ -96,11 +96,12 @@ environment:
   LOG_LEVEL: warn
   
   # Database (replace with your actual values)
-  MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-  MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-  DB_HOST: mysql
-  DB_USER: driver
-  DB_NAME: driver
+  POSTGRES_USER: ${POSTGRES_USER:-driver}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${POSTGRES_DB:-driver}
+  DB_HOST: postgres
+  DB_USER: ${POSTGRES_USER:-driver}
+  DB_NAME: ${POSTGRES_DB:-driver}
   
   # WhatsApp Configuration
   WA_API_URL: ${WA_API_URL}

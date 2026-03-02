@@ -1,26 +1,24 @@
 version: '3.8'
 
 services:
-  # MySQL Database Service
-  mysql:
-    image: mysql:8.0
-    container_name: driver_booking_mysql_prod
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: driver_booking_postgres_prod
     restart: always
     ports:
-      - "3306:3306"
+      - "5432:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: driver
-      MYSQL_USER: driver
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-driver}
-      MYSQL_INITDB_SKIP_TZINFO: 1
+      POSTGRES_USER: ${POSTGRES_USER:-driver}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-driver}
+      POSTGRES_DB: ${POSTGRES_DB:-driver}
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./scripts/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - driver-booking-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-driver} -d ${POSTGRES_DB:-driver}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +38,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: "mysql://driver:${MYSQL_PASSWORD:-driver}@mysql:3306/driver"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-driver}:${POSTGRES_PASSWORD:-driver}@postgres:5432/${POSTGRES_DB:-driver}?schema=public"
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
       WA_API_URL: ${WA_API_URL}
@@ -48,7 +46,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe@123}
       LOG_LEVEL: ${LOG_LEVEL:-warn}
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
@@ -68,7 +66,7 @@ services:
         max-file: "3"
 
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local
 
 networks:
