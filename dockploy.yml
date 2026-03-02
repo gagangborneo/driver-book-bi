@@ -1,0 +1,163 @@
+# Dockploy Configuration File
+# Full documentation: https://dockploy.io
+
+version: '3'
+
+app:
+  name: driver-booking
+  description: Driver Booking System with GPS Tracking
+  version: 1.0.0
+
+# Docker Compose configuration
+docker:
+  compose_file: docker-compose.production.yml
+  
+  # Build configuration
+  build:
+    dockerfile: Dockerfile.production
+    context: .
+    args:
+      NODE_ENV: production
+
+  # Container configuration
+  services:
+    app:
+      restart: always
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      ports:
+        - "3000:3000"
+
+    mysql:
+      restart: always
+      ports:
+        - "3306:3306"
+
+# Deployment configuration
+deployment:
+  # Pre-deployment hooks
+  pre_deploy:
+    - name: Pre-migration checks
+      script: ./scripts/pre-migration.sh
+      timeout: 300
+      critical: true
+      
+    - name: Backup database
+      script: mysqldump -h ${DB_HOST} -u ${DB_USER} -p${DB_PASSWORD} driver > .backups/backup_$(date +\%Y\%m\%d_\%H\%M\%S).sql
+      timeout: 600
+      critical: true
+
+  # Deployment steps
+  deploy:
+    - name: Pull latest code
+      type: git
+      branch: main
+      
+    - name: Build Docker image
+      type: docker
+      service: app
+      
+    - name: Start services
+      type: compose
+      action: up
+      detached: true
+
+  # Post-deployment hooks
+  post_deploy:
+    - name: Run database migrations
+      script: ./scripts/apply-migration.sh --with-seed
+      timeout: 300
+      critical: true
+      
+    - name: Health check
+      script: curl -f http://localhost:3000/api/health
+      timeout: 60
+      retries: 5
+      critical: true
+      
+    - name: Monitor migration
+      script: ./scripts/monitor-migration.sh
+      timeout: 120
+      critical: false
+
+  # Rollback configuration
+  rollback:
+    enabled: true
+    on_failure: true
+    script: ./scripts/rollback-migration.sh
+    timeout: 600
+
+# Environment variables
+environment:
+  NODE_ENV: production
+  LOG_LEVEL: warn
+  
+  # Database (replace with your actual values)
+  MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+  DB_HOST: mysql
+  DB_USER: driver
+  DB_NAME: driver
+  
+  # WhatsApp Configuration
+  WA_API_URL: ${WA_API_URL}
+  WA_API_KEY: ${WA_API_KEY}
+  WA_PHONE_NUMBER: ${WA_PHONE_NUMBER}
+  
+  # Application
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+  NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+
+# Monitoring configuration
+monitoring:
+  health_check: http://localhost:3000/api/health
+  check_interval: 30
+  check_timeout: 10
+  max_retries: 3
+  
+  warnings:
+    cpu_threshold: 80
+    memory_threshold: 85
+    disk_threshold: 90
+
+# Logging configuration
+logging:
+  level: warn
+  
+  # Log files
+  app_log: ./logs/app.log
+  error_log: ./logs/error.log
+  migration_log: ./logs/migration.log
+  
+  # Backup logs
+  backup_dir: ./backups
+  retention_days: 30
+
+# Security configuration
+security:
+  # Only allow deployments from specific branches
+  allowed_branches:
+    - main
+    - production
+  
+  # Require confirmation for production deployments
+  require_confirmation: true
+  
+  # Backup before deployment
+  backup_before_deploy: true
+
+# Notifications (optional)
+notifications:
+  enabled: false
+  # Configure your notification providers here
+  # Example:
+  # email:
+  #   enabled: true
+  #   recipients:
+  #     - admin@example.com
+  # slack:
+  #   enabled: false
+  #   webhook_url: ${SLACK_WEBHOOK_URL}
