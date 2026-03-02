@@ -31,26 +31,13 @@ export function ChangePassword({ userId, token, role }: ChangePasswordProps) {
     e.preventDefault();
 
     // Validation
-    if (isSimplifiedMode) {
-      // For employee and driver: only require newPassword
-      if (!formData.newPassword || !formData.confirmPassword) {
-        toast({
-          title: 'Gagal',
-          description: 'Semua field harus diisi',
-          variant: 'destructive',
-        });
-        return;
-      }
-    } else {
-      // For admin: require all three fields
-      if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
-        toast({
-          title: 'Gagal',
-          description: 'Semua field harus diisi',
-          variant: 'destructive',
-        });
-        return;
-      }
+    if (!formData.newPassword) {
+      toast({
+        title: 'Gagal',
+        description: 'Password baru harus diisi',
+        variant: 'destructive',
+      });
+      return;
     }
 
     if (formData.newPassword.length < 6) {
@@ -62,22 +49,34 @@ export function ChangePassword({ userId, token, role }: ChangePasswordProps) {
       return;
     }
 
-    if (formData.newPassword !== formData.confirmPassword) {
-      toast({
-        title: 'Gagal',
-        description: 'Konfirmasi password tidak sesuai',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!isSimplifiedMode) {
+      // For admin: require confirmation password
+      if (!formData.confirmPassword) {
+        toast({
+          title: 'Gagal',
+          description: 'Konfirmasi password harus diisi',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-    if (!isSimplifiedMode && formData.currentPassword === formData.newPassword) {
-      toast({
-        title: 'Gagal',
-        description: 'Password baru harus berbeda dengan password saat ini',
-        variant: 'destructive',
-      });
-      return;
+      if (formData.newPassword !== formData.confirmPassword) {
+        toast({
+          title: 'Gagal',
+          description: 'Konfirmasi password tidak sesuai',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (formData.currentPassword === formData.newPassword) {
+        toast({
+          title: 'Gagal',
+          description: 'Password baru harus berbeda dengan password saat ini',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -170,17 +169,19 @@ export function ChangePassword({ userId, token, role }: ChangePasswordProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              placeholder="Konfirmasi password baru"
-              disabled={isLoading}
-            />
-          </div>
+          {!isSimplifiedMode && (
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                placeholder="Konfirmasi password baru"
+                disabled={isLoading}
+              />
+            </div>
+          )}
 
           <div className="flex gap-2 pt-4">
             <Button
