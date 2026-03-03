@@ -7,10 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Car, Users, UserCog, AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { AlertCircle } from 'lucide-react';
 
 interface LoginPageProps {
   onLogin: (user: User, token: string) => void;
@@ -45,12 +43,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       setIsLoading(false);
     }
   };
-
-  const demoAccounts = [
-    { email: 'admin@bi.go.id', role: 'Admin', icon: UserCog, color: 'text-red-600' },
-    { email: 'budi.santoso@bi.go.id', role: 'Karyawan', icon: Users, color: 'text-green-600' },
-    { email: 'driver.joko@bi.go.id', role: 'Driver', icon: Car, color: 'text-blue-600' },
-  ];
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-linear-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -115,34 +107,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 {isLoading ? 'Memproses...' : 'Masuk'}
               </Button>
             </form>
-          </CardContent>
-        </Card>
-
-        {/* Demo Accounts */}
-        <Card className="border-0 shadow-lg bg-slate-800/50 backdrop-blur">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-slate-300">Demo Accounts</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {demoAccounts.map((account) => (
-              <button
-                key={account.email}
-                onClick={() => {
-                  setEmail(account.email);
-                  setPassword('password123');
-                }}
-                className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/50 transition-colors text-left"
-              >
-                <account.icon className={cn('h-5 w-5', account.color)} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{account.email}</p>
-                  <p className="text-xs text-slate-400">{account.role}</p>
-                </div>
-                <Badge variant="outline" className="text-xs border-slate-600 text-slate-300">
-                  password123
-                </Badge>
-              </button>
-            ))}
           </CardContent>
         </Card>
       </div>
