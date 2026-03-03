@@ -75,21 +75,22 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
     return () => clearInterval(interval);
   }, [token]);
 
-  // Track live user location when there's an active booking (but no waypoints yet)
+  // Track live user location when there's an active booking (before and during trip)
   useEffect(() => {
     if (!activeBooking) {
       setLiveUserLocation(null);
       return;
     }
 
-    // Only track live location before journey starts (APPROVED status, no waypoints)
-    const shouldTrackLiveLocation = 
-      (activeBooking.status as string) === 'APPROVED' && 
-      gpsWaypoints.length === 0;
+    const shouldTrackLiveLocation = ['APPROVED', 'DEPARTED', 'ARRIVED', 'RETURNING'].includes(
+      activeBooking.status as string
+    );
 
     if (!shouldTrackLiveLocation) {
       return;
     }
+
+    let watchId: number | null = null;
 
     // Request location permission and start tracking
     const startTracking = async () => {
@@ -111,7 +112,7 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
           setLocationPermissionGranted(true);
 
           // Start watching position for real-time updates
-          const watchId = navigator.geolocation.watchPosition(
+          watchId = navigator.geolocation.watchPosition(
             (pos) => {
               setLiveUserLocation({
                 latitude: pos.coords.latitude,
@@ -128,9 +129,6 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
             }
           );
 
-          return () => {
-            navigator.geolocation.clearWatch(watchId);
-          };
         } catch (error) {
           console.error('Error getting location:', error);
           toast({
@@ -149,7 +147,13 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
     };
 
     startTracking();
-  }, [activeBooking, gpsWaypoints, toast]);
+
+    return () => {
+      if (watchId !== null && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [activeBooking, toast]);
 
   // Load GPS waypoints when active booking changes
   useEffect(() => {
@@ -317,6 +321,7 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
                           longitude: w.longitude as number,
                           accuracy: w.accuracy as number | undefined,
                           timestamp: w.timestamp as string,
+                          status: w.status as string | undefined, // Status booking saat waypoint direkam
                         }))}
                         pickup={pickupData}
                         destination={destinationData}

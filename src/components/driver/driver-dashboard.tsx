@@ -95,15 +95,17 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
     return () => clearInterval(interval);
   }, [token]);
 
-  // Track live driver location when there's an active booking (APPROVED status, before departure)
+  // Track live driver location when there's an active booking (before and during trip)
   useEffect(() => {
     if (!activeBooking) {
       setLiveDriverLocation(null);
       return;
     }
 
-    // Only track live location for APPROVED status (before journey starts)
-    const shouldTrackLiveLocation = (activeBooking.status as string) === 'APPROVED';
+    // Track live location for all active journey statuses
+    const shouldTrackLiveLocation = ['APPROVED', 'DEPARTED', 'ARRIVED', 'RETURNING'].includes(
+      activeBooking.status as string
+    );
 
     if (!shouldTrackLiveLocation) {
       setLiveDriverLocation(null);
@@ -225,7 +227,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
           const { latitude, longitude, accuracy } = position.coords;
 
-          // Save GPS waypoint
+          // Save GPS waypoint with current status
           await api('/gps', {
             method: 'POST',
             body: JSON.stringify({
@@ -233,6 +235,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
               latitude,
               longitude,
               accuracy,
+              status: statusMap[action], // Include status for colored markers
             }),
           }, token);
 
@@ -606,9 +609,11 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
                 const destination = destinationCoords
                   ? { lat: destinationCoords.lat, lng: destinationCoords.lng, name: activeBooking.destination as string }
                   : null;
-                const currentLocation = currentCoords
-                  ? { latitude: currentCoords.lat, longitude: currentCoords.lng }
-                  : null;
+                const currentLocation = liveDriverLocation
+                  ? { latitude: liveDriverLocation.latitude, longitude: liveDriverLocation.longitude }
+                  : currentCoords
+                    ? { latitude: currentCoords.lat, longitude: currentCoords.lng }
+                    : null;
 
                 if (!pickup && !destination) {
                   return (

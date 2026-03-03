@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { bookingId, latitude, longitude, accuracy } = data;
+    const { bookingId, latitude, longitude, accuracy, status } = data;
 
     if (!bookingId || latitude === undefined || longitude === undefined) {
       return NextResponse.json(
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
         accuracy: accuracy ? parseFloat(accuracy) : undefined,
+        status: status || null, // Save booking status at time of recording
       },
     });
 

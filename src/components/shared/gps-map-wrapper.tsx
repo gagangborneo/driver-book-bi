@@ -9,6 +9,7 @@ interface GPSWaypoint {
   longitude: number;
   accuracy?: number;
   timestamp: string;
+  status?: string; // Booking status saat waypoint direkam
 }
 
 interface GPSMapProps {

@@ -310,6 +310,7 @@ export function TravelDetailCard({ booking, showDriver = true, token }: TravelDe
                 longitude: w.longitude as number,
                 accuracy: w.accuracy as number | undefined,
                 timestamp: w.timestamp as string,
+                status: w.status as string | undefined, // Status booking saat waypoint direkam
               }))}
               pickup={pickupData}
               destination={destData}

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { LocateFixed, Maximize2, Minimize2 } from 'lucide-react';
 
 interface GPSWaypoint {
   id: string;
@@ -11,6 +11,7 @@ interface GPSWaypoint {
   longitude: number;
   accuracy?: number;
   timestamp: string;
+  status?: string; // Booking status saat waypoint direkam
 }
 
 interface GPSMapProps {
@@ -42,17 +43,34 @@ function GPSMap({
   const getStatusColor = (status?: string): string => {
     switch (status) {
       case 'APPROVED':
-        return '#3B82F6';
+        return '#3B82F6'; // Blue - disetujui
       case 'DEPARTED':
-        return '#6366F1';
+        return '#6366F1'; // Indigo - berangkat
       case 'ARRIVED':
-        return '#A855F7';
+        return '#A855F7'; // Purple - tiba di tujuan
       case 'RETURNING':
-        return '#F97316';
+        return '#F97316'; // Orange - kembali
       case 'COMPLETED':
-        return '#22C55E';
+        return '#22C55E'; // Green - selesai
       default:
-        return '#EF4444';
+        return '#EF4444'; // Red - default
+    }
+  };
+
+  const getStatusLabel = (status?: string): string => {
+    switch (status) {
+      case 'APPROVED':
+        return '✓ Disetujui';
+      case 'DEPARTED':
+        return '🚗 Berangkat';
+      case 'ARRIVED':
+        return '📍 Tiba di Tujuan';
+      case 'RETURNING':
+        return '🔙 Kembali';
+      case 'COMPLETED':
+        return '✅ Selesai';
+      default:
+        return '📍 Titik GPS';
     }
   };
 
@@ -157,25 +175,44 @@ function GPSMap({
 
     const driverMarker = createCircleMarkerIcon(getStatusColor(currentStatus));
 
-    const waypointMarker = L.icon({
-      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI4IiBmaWxsPSIjNjM2MzYzIiBmaWxsLW9wYWNpdHk9IjAuNiIvPjwvc3ZnPg==',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12],
-    });
+    // Helper function to create colored waypoint markers
+    const createWaypointMarker = (status?: string) => {
+      const color = getStatusColor(status);
+      const svg = `
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="14" fill="${color}" fill-opacity="0.3"/>
+          <circle cx="16" cy="16" r="8" fill="${color}"/>
+          <circle cx="16" cy="16" r="4" fill="white"/>
+        </svg>
+      `;
+      return L.icon({
+        iconUrl: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16],
+      });
+    };
 
-    // Priority 1: Show live user location if available (before journey starts)
-    if (liveUserLocation && waypoints.length === 0) {
+    // Always show live user location if available (untuk melihat posisi perangkat)
+    const hasWaypoints = waypoints && waypoints.length > 0;
+    
+    if (liveUserLocation) {
       const marker = L.marker([liveUserLocation.latitude, liveUserLocation.longitude], { icon: liveUserMarker })
         .addTo(map.current)
-        .bindPopup('<strong>📍 Lokasi Anda Saat Ini</strong>')
-        .openPopup();
+        .bindPopup('<strong>📍 Lokasi Anda Saat Ini</strong>');
+      
+      // Open popup only if no waypoints yet (before journey starts)
+      if (!hasWaypoints) {
+        marker.openPopup();
+      }
+      
       layersRef.current.push(marker);
-      map.current.setView([liveUserLocation.latitude, liveUserLocation.longitude], 15);
+      
+      // Set initial view only if no waypoints yet
+      if (!hasWaypoints) {
+        map.current.setView([liveUserLocation.latitude, liveUserLocation.longitude], 15);
+      }
     }
-
-    // Only show pickup/destination markers when there are waypoints (journey has started)
-    const hasWaypoints = waypoints && waypoints.length > 0;
     
     if (hasWaypoints && showPickupDestination) {
       // Add pickup marker
@@ -205,18 +242,21 @@ function GPSMap({
       layersRef.current.push(marker);
     }
 
-    // Add waypoints (recorded GPS points during journey)
+    // Add waypoints (recorded GPS points during journey) - dengan marker berwarna per status
     if (hasWaypoints) {
       waypoints.forEach((waypoint, index) => {
         const isFirst = index === 0;
+        const waypointIcon = isFirst ? pickupMarker : createWaypointMarker(waypoint.status);
+        const statusLabel = getStatusLabel(waypoint.status);
+        
         const marker = L.marker([waypoint.latitude, waypoint.longitude], {
-          icon: isFirst ? pickupMarker : waypointMarker, // First waypoint is starting point
+          icon: waypointIcon,
         })
           .addTo(map.current!)
           .bindPopup(
             isFirst 
               ? '<strong>🚗 Titik Keberangkatan</strong><br/>' + new Date(waypoint.timestamp).toLocaleString('id-ID')
-              : `<small>Waktu: ${new Date(waypoint.timestamp).toLocaleTimeString('id-ID')}</small>`
+              : `<strong>${statusLabel}</strong><br/><small>⏰ ${new Date(waypoint.timestamp).toLocaleString('id-ID')}</small>`
           );
         layersRef.current.push(marker);
       });
@@ -235,11 +275,12 @@ function GPSMap({
       }).addTo(map.current);
       layersRef.current.push(polyline);
 
-      // Fit bounds to show all waypoints
+      // Fit bounds to show all waypoints and live location
       const bounds = L.latLngBounds(waypointCoords);
       if (showPickupDestination && pickup) bounds.extend([pickup.lat, pickup.lng]);
       if (showPickupDestination && destination) bounds.extend([destination.lat, destination.lng]);
       if (currentLocation) bounds.extend([currentLocation.latitude, currentLocation.longitude]);
+      if (liveUserLocation) bounds.extend([liveUserLocation.latitude, liveUserLocation.longitude]); // Include live location
       map.current.fitBounds(bounds, { padding: [50, 50] });
     } else if (!liveUserLocation) {
       // No waypoints and no live location: keep default center
@@ -267,22 +308,45 @@ function GPSMap({
     setIsFullscreen(!isFullscreen);
   };
 
+  const centerToLiveLocation = () => {
+    if (!map.current) return;
+
+    if (liveUserLocation) {
+      map.current.setView([liveUserLocation.latitude, liveUserLocation.longitude], 15);
+      return;
+    }
+
+    if (currentLocation) {
+      map.current.setView([currentLocation.latitude, currentLocation.longitude], 15);
+    }
+  };
+
   return (
     <div className="relative">
       <div ref={mapContainer} className={`w-full ${height} rounded-lg border`} />
       
-      {/* Fullscreen Button */}
-      <button
-        onClick={toggleFullscreen}
-        className="absolute top-2 right-2 z-10 bg-white hover:bg-gray-100 p-2 rounded-lg shadow-md border border-gray-200 transition-colors"
-        title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-      >
-        {isFullscreen ? (
-          <Minimize2 className="h-5 w-5 text-gray-700" />
-        ) : (
-          <Maximize2 className="h-5 w-5 text-gray-700" />
-        )}
-      </button>
+      <div className="absolute top-2 right-2 z-10 flex flex-col gap-2">
+        <button
+          onClick={centerToLiveLocation}
+          className="bg-white hover:bg-gray-100 p-2 rounded-lg shadow-md border border-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Lokasi Live"
+          disabled={!liveUserLocation && !currentLocation}
+        >
+          <LocateFixed className="h-5 w-5 text-gray-700" />
+        </button>
+
+        <button
+          onClick={toggleFullscreen}
+          className="bg-white hover:bg-gray-100 p-2 rounded-lg shadow-md border border-gray-200 transition-colors"
+          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+        >
+          {isFullscreen ? (
+            <Minimize2 className="h-5 w-5 text-gray-700" />
+          ) : (
+            <Maximize2 className="h-5 w-5 text-gray-700" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }
