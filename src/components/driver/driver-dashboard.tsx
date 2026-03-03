@@ -1115,7 +1115,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
       {/* Odometer Input Modal */}
       <Dialog open={showOdometerModal} onOpenChange={setShowOdometerModal}>
-        <DialogContent className="max-w-md z-50">
+        <DialogContent className="max-w-md z-5000">
           <DialogHeader>
             <DialogTitle>
               {pendingOdometerAction === 'depart' 
