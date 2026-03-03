@@ -197,7 +197,7 @@ const message = `🚗 Pesanan Driver Baru Masuk!
 📍 Tujuan: Bandara Soekarno-Hatta
 ⏰ Waktu: 09:00
 
-Segera cek aplikasi: https://driver-book-bi.vercel.app`;
+Segera cek aplikasi: https://lamin-bpp.web.id`;
 
 await sendWhatsAppGroupNotification(message, 'WAGDriver', 'e6683d05a9bfa0f2ca6087857cff17ed');
 ```

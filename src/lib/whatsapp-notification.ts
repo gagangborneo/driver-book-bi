@@ -52,7 +52,7 @@ export function buildBookingNotificationMessage(
   pickupLocation: string,
   destination: string,
   bookingTime: string,
-  appUrl: string = 'https://driver-book-bi.vercel.app/'
+  appUrl: string = 'https://lamin-bpp.web.id/'
 ): string {
   return `🚗 Pesanan Driver Baru Masuk!
 
@@ -116,7 +116,7 @@ export async function notifyNewBooking(
  */
 export function buildBookingAcceptedMessage(
   driverName: string,
-  appUrl: string = 'https://driver-book-bi.vercel.app/'
+  appUrl: string = 'https://lamin-bpp.web.id/'
 ): string {
   return `✅ Pesanan Diterima!
 
@@ -148,7 +148,7 @@ export function buildBookingCompletedMessage(
   driverName: string,
   pickupLocation: string,
   destination: string,
-  appUrl: string = 'https://driver-book-bi.vercel.app/'
+  appUrl: string = 'https://lamin-bpp.web.id/'
 ): string {
   return `✅ Perjalanan Selesai!
 

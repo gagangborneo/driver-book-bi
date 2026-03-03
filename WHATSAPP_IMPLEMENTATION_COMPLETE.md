@@ -232,7 +232,7 @@ DELETE /api/whatsapp/templates/:id  → Delete template
 | `{destination}` | Final destination | Bandara Soekarno-Hatta |
 | `{bookingTime}` | Scheduled time | 09:00 AM |
 | `{vehiclePlateNo}` | Vehicle plate number | B 1234 ABC |
-| `{appUrl}` | Application URL | https://driver-book-bi.vercel.app |
+| `{appUrl}` | Application URL | https://lamin-bpp.web.id |
 | `{status}` | Booking status | ON_TRIP |
 | `{completedTime}` | When completed | 2026-02-28 10:30 |
 | `{cancellationReason}` | Why cancelled | Driver unavailable |

@@ -174,7 +174,7 @@ async function notifyNewBooking(config, routes, templates, bookingData) {
     pickupLocation: bookingData.pickupLocation,
     destination: bookingData.destination,
     bookingTime: bookingData.bookingTime,
-    appUrl: 'https://driver-book-bi.vercel.app'
+    appUrl: 'https://lamin-bpp.web.id'
   }, templates);
   
   // Send

@@ -48,7 +48,7 @@ async function sendBookingNotification(token: string, bookingData: any) {
         pickupLocation: bookingData.pickupLocation,
         destination: bookingData.destination,
         bookingTime: bookingData.bookingTime,
-        appUrl: 'https://driver-book-bi.vercel.app'
+        appUrl: 'https://lamin-bpp.web.id'
       },
       templates
     );
@@ -96,7 +96,7 @@ const newBookingMsg = formatTemplate(BOOKING_TEMPLATES.NEW_BOOKING, {
   destination: 'Bandara CGK',
   bookingTime: '14:30',
   employeeName: 'Rina Wijaya',
-  appUrl: 'https://driver-book-bi.vercel.app'
+  appUrl: 'https://lamin-bpp.web.id'
 });
 
 // Booking accepted notification
@@ -104,7 +104,7 @@ const acceptedMsg = formatTemplate(BOOKING_TEMPLATES.BOOKING_ACCEPTED, {
   driverName: 'Budi Santoso',
   vehiclePlateNo: 'B 1234 ABC',
   status: 'ON_TRIP',
-  appUrl: 'https://driver-book-bi.vercel.app'
+  appUrl: 'https://lamin-bpp.web.id'
 });
 
 // ============================================
@@ -152,7 +152,7 @@ async function handleNewBooking(
         pickupLocation: bookingData.pickupLocation,
         destination: bookingData.destination,
         bookingTime: bookingData.bookingTime,
-        appUrl: 'https://driver-book-bi.vercel.app'
+        appUrl: 'https://lamin-bpp.web.id'
       },
       templates
     );
@@ -208,7 +208,7 @@ function buildCustomMessage(
     bookingTime: booking.bookingTime,
     driverName: booking.driver?.name || 'Driver',
     vehiclePlateNo: booking.vehicle?.plateNumber || 'TBD',
-    appUrl: 'https://driver-book-bi.vercel.app',
+    appUrl: 'https://lamin-bpp.web.id',
     status: booking.status,
     completedTime: new Date(booking.completedAt).toLocaleString('id-ID'),
   };
@@ -257,7 +257,7 @@ async function sendBatchNotifications(
             pickupLocation: booking.pickupLocation,
             destination: booking.destination,
             bookingTime: booking.bookingTime,
-            appUrl: 'https://driver-book-bi.vercel.app'
+            appUrl: 'https://lamin-bpp.web.id'
           },
           templates
         );
