@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Car, MapPin, Flag, Calendar, Clock, ChevronLeft, ChevronRight, X, Trash2 } from 'lucide-react';
+import { Car, MapPin, Flag, Calendar, Clock, ChevronLeft, ChevronRight, X, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LoadingSkeleton } from '@/components/shared/loading';
 import { TravelDetailModal } from '@/components/shared/travel-detail-modal';
@@ -38,6 +38,12 @@ export function AdminBookings({ token }: AdminBookingsProps) {
   const [deleteBookingId, setDeleteBookingId] = useState<string | null>(null);
   const [deleteBookingInfo, setDeleteBookingInfo] = useState<Record<string, unknown> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Edit modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editBookingId, setEditBookingId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<Record<string, unknown>>({});
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -99,6 +105,51 @@ export function AdminBookings({ token }: AdminBookingsProps) {
     setDeleteBookingId(booking.id as string);
     setDeleteBookingInfo(booking);
     setShowDeleteModal(true);
+  };
+
+  const openEditModal = (booking: Record<string, unknown>) => {
+    setEditBookingId(booking.id as string);
+    setEditFormData({
+      status: booking.status,
+      pickupLocation: booking.pickupLocation,
+      destination: booking.destination,
+      bookingDate: booking.bookingDate ? new Date(booking.bookingDate as string).toISOString().split('T')[0] : '',
+      bookingTime: booking.bookingTime,
+      notes: booking.notes || '',
+      startOdometer: booking.startOdometer || '',
+      endOdometer: booking.endOdometer || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditBooking = async () => {
+    if (!editBookingId) return;
+
+    setIsSubmitting(true);
+    try {
+      await api(`/bookings/${editBookingId}`, {
+        method: 'PUT',
+        body: JSON.stringify(editFormData),
+      }, token);
+
+      toast({
+        title: 'Berhasil',
+        description: 'Perjalanan berhasil diperbarui',
+      });
+
+      setShowEditModal(false);
+      setEditBookingId(null);
+      setEditFormData({});
+      fetchBookings();
+    } catch (error) {
+      toast({
+        title: 'Gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -270,6 +321,14 @@ export function AdminBookings({ token }: AdminBookingsProps) {
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      onClick={() => openEditModal(booking)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={() => openDeleteModal(booking)}
                     >
@@ -410,6 +469,136 @@ export function AdminBookings({ token }: AdminBookingsProps) {
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Menghapus...' : 'Hapus'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Perjalanan</DialogTitle>
+            <DialogDescription>
+              Perbarui detail perjalanan di bawah ini
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Status */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-status">Status</Label>
+              <Select 
+                value={(editFormData.status as string) || 'PENDING'} 
+                onValueChange={(val) => setEditFormData({ ...editFormData, status: val })}
+              >
+                <SelectTrigger id="edit-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PENDING">Menunggu</SelectItem>
+                  <SelectItem value="APPROVED">Disetujui</SelectItem>
+                  <SelectItem value="DEPARTED">Berangkat</SelectItem>
+                  <SelectItem value="ARRIVED">Tiba</SelectItem>
+                  <SelectItem value="RETURNING">Kembali</SelectItem>
+                  <SelectItem value="COMPLETED">Selesai</SelectItem>
+                  <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Pickup Location */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-pickup">Lokasi Awal *</Label>
+              <Input
+                id="edit-pickup"
+                placeholder="Masukkan lokasi awal"
+                value={(editFormData.pickupLocation as string) || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, pickupLocation: e.target.value })}
+              />
+            </div>
+
+            {/* Destination */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-destination">Tujuan *</Label>
+              <Input
+                id="edit-destination"
+                placeholder="Masukkan tujuan"
+                value={(editFormData.destination as string) || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, destination: e.target.value })}
+              />
+            </div>
+
+            {/* Booking Date */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-date">Tanggal Perjalanan *</Label>
+                <Input
+                  id="edit-date"
+                  type="date"
+                  value={(editFormData.bookingDate as string) || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, bookingDate: e.target.value })}
+                />
+              </div>
+
+              {/* Booking Time */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-time">Waktu Perjalanan *</Label>
+                <Input
+                  id="edit-time"
+                  type="time"
+                  value={(editFormData.bookingTime as string) || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, bookingTime: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Catatan</Label>
+              <Input
+                id="edit-notes"
+                placeholder="Tambahkan catatan (opsional)"
+                value={(editFormData.notes as string) || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+              />
+            </div>
+
+            {/* Odometer */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-startOdometer">Odometer Awal</Label>
+                <Input
+                  id="edit-startOdometer"
+                  type="number"
+                  placeholder="KM awal"
+                  value={(editFormData.startOdometer as number | string) || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, startOdometer: e.target.value ? parseInt(e.target.value) : '' })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-endOdometer">Odometer Akhir</Label>
+                <Input
+                  id="edit-endOdometer"
+                  type="number"
+                  placeholder="KM akhir"
+                  value={(editFormData.endOdometer as number | string) || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, endOdometer: e.target.value ? parseInt(e.target.value) : '' })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditModal(false)} disabled={isSubmitting}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleEditBooking}
+              disabled={isSubmitting || !(editFormData.pickupLocation && editFormData.destination && editFormData.bookingDate && editFormData.bookingTime)}
+            >
+              {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
             </Button>
           </DialogFooter>
         </DialogContent>
