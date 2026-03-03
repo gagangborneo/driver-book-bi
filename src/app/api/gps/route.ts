@@ -9,6 +9,14 @@ function getUserIdFromToken(authHeader: string | null): string | null {
   return payload?.userId || null;
 }
 
+function getAuthFromToken(authHeader: string | null): { userId: string; role: string } | null {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.split(' ')[1];
+  const payload = verifyToken(token);
+  if (!payload?.userId) return null;
+  return { userId: payload.userId, role: payload.role };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const userId = getUserIdFromToken(request.headers.get('authorization'));
@@ -73,10 +81,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = getUserIdFromToken(request.headers.get('authorization'));
-    if (!userId) {
+    const auth = getAuthFromToken(request.headers.get('authorization'));
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { userId, role } = auth;
 
     const { searchParams } = new URL(request.url);
     const bookingId = searchParams.get('bookingId');
@@ -98,8 +108,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    // Check access - allow driver or employee
-    if (booking.driverId !== userId && booking.employeeId !== userId) {
+    // Check access - allow admin, assigned driver, or booking owner employee
+    if (role !== 'ADMIN' && booking.driverId !== userId && booking.employeeId !== userId) {
       return NextResponse.json(
         { error: 'Unauthorized to view this booking' },
         { status: 403 }

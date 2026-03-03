@@ -314,6 +314,7 @@ export function TravelDetailCard({ booking, showDriver = true, token }: TravelDe
               pickup={pickupData}
               destination={destData}
               currentLocation={currentCoords ? { latitude: currentCoords.lat, longitude: currentCoords.lng } : undefined}
+              currentStatus={booking.status as string}
               height="h-80"
               showPickupDestination={gpsWaypoints.length > 0}
             />

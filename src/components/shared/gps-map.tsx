@@ -19,6 +19,7 @@ interface GPSMapProps {
   destination?: { lat: number; lng: number; name: string } | null;
   currentLocation?: { latitude: number; longitude: number } | null;
   liveUserLocation?: { latitude: number; longitude: number } | null;
+  currentStatus?: string;
   height?: string;
   showPickupDestination?: boolean; // Only show pickup/destination if there are waypoints
 }
@@ -29,6 +30,7 @@ function GPSMap({
   destination,
   currentLocation,
   liveUserLocation,
+  currentStatus,
   height = 'h-96',
   showPickupDestination = true,
 }: GPSMapProps): JSX.Element {
@@ -36,6 +38,57 @@ function GPSMap({
   const map = useRef<L.Map | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const layersRef = useRef<L.Layer[]>([]);
+
+  const getStatusColor = (status?: string): string => {
+    switch (status) {
+      case 'APPROVED':
+        return '#3B82F6';
+      case 'DEPARTED':
+        return '#6366F1';
+      case 'ARRIVED':
+        return '#A855F7';
+      case 'RETURNING':
+        return '#F97316';
+      case 'COMPLETED':
+        return '#22C55E';
+      default:
+        return '#EF4444';
+    }
+  };
+
+  const getRouteColor = (status?: string): string => {
+    switch (status) {
+      case 'APPROVED':
+        return '#3B82F6';
+      case 'DEPARTED':
+        return '#6366F1';
+      case 'ARRIVED':
+        return '#A855F7';
+      case 'RETURNING':
+        return '#F97316';
+      case 'COMPLETED':
+        return '#22C55E';
+      default:
+        return '#FF9800';
+    }
+  };
+
+  const createCircleMarkerIcon = (color: string, size = 48, innerRadius = 12): L.Icon => {
+    const radius = size / 2;
+    const svg = `
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="${radius}" cy="${radius}" r="${radius}" fill="${color}"/>
+        <circle cx="${radius}" cy="${radius}" r="${innerRadius}" fill="white"/>
+      </svg>
+    `;
+
+    return L.icon({
+      iconUrl: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+      iconSize: [size, size],
+      iconAnchor: [radius, size],
+      popupAnchor: [0, -size],
+    });
+  };
 
   // Initialize map only once
   useEffect(() => {
@@ -102,12 +155,7 @@ function GPSMap({
       popupAnchor: [0, -32],
     });
 
-    const driverMarker = L.icon({
-      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNCIgY3k9IjI0IiByPSIyNCIgZmlsbD0iI0VGNDQ0NCIvPjxjaXJjbGUgY3g9IjI0IiBjeT0iMjQiIHI9IjEyIiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==',
-      iconSize: [48, 48],
-      iconAnchor: [24, 48],
-      popupAnchor: [0, -48],
-    });
+    const driverMarker = createCircleMarkerIcon(getStatusColor(currentStatus));
 
     const waypointMarker = L.icon({
       iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI4IiBmaWxsPSIjNjM2MzYzIiBmaWxsLW9wYWNpdHk9IjAuNiIvPjwvc3ZnPg==',
@@ -180,7 +228,7 @@ function GPSMap({
       ]);
 
       const polyline = L.polyline(waypointCoords, {
-        color: '#FF9800',
+        color: getRouteColor(currentStatus),
         weight: 3,
         opacity: 0.7,
         smoothFactor: 1.0,
@@ -200,7 +248,7 @@ function GPSMap({
         map.current.setView([pickup.lat, pickup.lng], 13);
       }
     }
-  }, [waypoints, pickup, destination, currentLocation, liveUserLocation, showPickupDestination]);
+  }, [waypoints, pickup, destination, currentLocation, liveUserLocation, showPickupDestination, currentStatus]);
 
   const toggleFullscreen = () => {
     if (!mapContainer.current) return;
