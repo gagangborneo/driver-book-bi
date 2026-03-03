@@ -77,12 +77,14 @@ export async function PUT(
     // If password change is requested
     if (data.password) {
       // Admin can change any user's password without current password
-      // Regular users must provide current password when changing their own
+      // Employee/Driver can change their own password without current password
       const isAdmin = currentUser?.role === UserRole.ADMIN;
       const isOwnProfile = currentUserId === id;
+      const isEmployeeOrDriver =
+        currentUser?.role === UserRole.EMPLOYEE || currentUser?.role === UserRole.DRIVER;
       
-      if (!isAdmin && isOwnProfile) {
-        // Regular user changing own password - require current password
+      if (!isAdmin && !isEmployeeOrDriver && isOwnProfile) {
+        // Other roles changing own password - require current password
         if (!data.currentPassword) {
           return NextResponse.json({ error: 'Password saat ini diperlukan untuk mengubah password' }, { status: 400 });
         }
