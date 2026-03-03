@@ -11,6 +11,18 @@ function getUserIdFromToken(authHeader: string | null): string | null {
   return payload?.userId || null;
 }
 
+// Default Balikpapan coordinates with some variation for different locations
+function getDefaultBalikpapanCoords(locationType: 'pickup' | 'destination') {
+  // Center of Balikpapan: -1.2720, 116.7896
+  // Add small offsets for pickup vs destination to show different markers
+  const baseCoords = {
+    pickup: { lat: -1.2720, lng: 116.7896 }, // BI Office Balikpapan area
+    destination: { lat: -1.2683, lng: 116.8289 }, // Sultan Aji Muhammad Sulaiman Airport area
+  };
+  
+  return baseCoords[locationType];
+}
+
 // Note: pickup/destination coordinates are optional and should be provided explicitly when available.
 
 // Get all bookings
@@ -136,6 +148,10 @@ export async function POST(request: NextRequest) {
 
     // Create a pending booking without assigning to any driver yet
     // This allows first-come-first-serve for available drivers
+    // Add default Balikpapan coordinates if not provided
+    const pickupCoords = getDefaultBalikpapanCoords('pickup');
+    const destinationCoords = getDefaultBalikpapanCoords('destination');
+
     const newBooking = await db.booking.create({
       data: {
         employeeId: userId,
@@ -147,6 +163,8 @@ export async function POST(request: NextRequest) {
         bookingTime,
         status: BookingStatus.PENDING,
         notes: notes || null,
+        pickupCoords: JSON.stringify({ ...pickupCoords, name: pickupLocation }),
+        destinationCoords: JSON.stringify({ ...destinationCoords, name: destination }),
       },
       include: {
         employee: { select: { id: true, email: true, name: true, phone: true, role: true, isActive: true } },

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 interface GPSWaypoint {
   id: string;
@@ -17,26 +18,38 @@ interface GPSMapProps {
   pickup?: { lat: number; lng: number; name: string } | null;
   destination?: { lat: number; lng: number; name: string } | null;
   currentLocation?: { latitude: number; longitude: number } | null;
+  liveUserLocation?: { latitude: number; longitude: number } | null;
   height?: string;
+  showPickupDestination?: boolean; // Only show pickup/destination if there are waypoints
 }
 
-export function GPSMap({
+function GPSMap({
   waypoints,
   pickup,
   destination,
   currentLocation,
+  liveUserLocation,
   height = 'h-96',
-}: GPSMapProps) {
+  showPickupDestination = true,
+}: GPSMapProps): JSX.Element {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const layersRef = useRef<L.Layer[]>([]);
 
+  // Initialize map only once
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current || map.current) return;
 
     // Initialize map with default center (Balikpapan)
     const defaultCenter: [number, number] = [-1.2720, 116.7896];
     
-    map.current = L.map(mapContainer.current).setView(defaultCenter, 12);
+    try {
+      map.current = L.map(mapContainer.current).setView(defaultCenter, 12);
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      return;
+    }
 
     // Add tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -45,7 +58,28 @@ export function GPSMap({
       maxZoom: 19,
     }).addTo(map.current);
 
-    // Custom markers
+    // Cleanup: only remove map on component unmount
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
+  }, []);
+
+  // Update markers and layers when data changes
+  useEffect(() => {
+    if (!map.current) return;
+
+    // Remove all previous layers
+    layersRef.current.forEach((layer) => {
+      if (map.current) {
+        map.current.removeLayer(layer);
+      }
+    });
+    layersRef.current = [];
+
+    // Custom markers - Pickup/Destination (only shown when there are waypoints)
     const pickupMarker = L.icon({
       iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNCIgY3k9IjI0IiByPSIyNCIgZmlsbD0iIzMwN0FFQyIvPjxjaXJjbGUgY3g9IjI0IiBjeT0iMjQiIHI9IjEyIiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==',
       iconSize: [48, 48],
@@ -58,6 +92,14 @@ export function GPSMap({
       iconSize: [48, 48],
       iconAnchor: [24, 48],
       popupAnchor: [0, -48],
+    });
+
+    // Live User Location Marker (prominent, pulsing blue)
+    const liveUserMarker = L.icon({
+      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMiIgZmlsbD0iIzNiODJmNiIgZmlsbC1vcGFjaXR5PSIwLjMiLz48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIyMCIgZmlsbD0iIzNiODJmNiIvPjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjEwIiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==',
+      iconSize: [64, 64],
+      iconAnchor: [32, 32],
+      popupAnchor: [0, -32],
     });
 
     const driverMarker = L.icon({
@@ -74,38 +116,61 @@ export function GPSMap({
       popupAnchor: [0, -12],
     });
 
-    // Add markers
-    if (pickup) {
-      L.marker([pickup.lat, pickup.lng], { icon: pickupMarker })
+    // Priority 1: Show live user location if available (before journey starts)
+    if (liveUserLocation && waypoints.length === 0) {
+      const marker = L.marker([liveUserLocation.latitude, liveUserLocation.longitude], { icon: liveUserMarker })
         .addTo(map.current)
-        .bindPopup(`<strong>Keberangkatan</strong><br/>${pickup.name}`)
+        .bindPopup('<strong>📍 Lokasi Anda Saat Ini</strong>')
         .openPopup();
+      layersRef.current.push(marker);
+      map.current.setView([liveUserLocation.latitude, liveUserLocation.longitude], 15);
     }
 
-    if (destination) {
-      L.marker([destination.lat, destination.lng], { icon: destinationMarker })
-        .addTo(map.current)
-        .bindPopup(`<strong>Tujuan</strong><br/>${destination.name}`);
+    // Only show pickup/destination markers when there are waypoints (journey has started)
+    const hasWaypoints = waypoints && waypoints.length > 0;
+    
+    if (hasWaypoints && showPickupDestination) {
+      // Add pickup marker
+      if (pickup) {
+        const marker = L.marker([pickup.lat, pickup.lng], { icon: pickupMarker })
+          .addTo(map.current)
+          .bindPopup(`<strong>Penjemputan</strong><br/>${pickup.name}`);
+        layersRef.current.push(marker);
+      }
+
+      // Add destination marker
+      if (destination) {
+        const marker = L.marker([destination.lat, destination.lng], { icon: destinationMarker })
+          .addTo(map.current)
+          .bindPopup(`<strong>Tujuan</strong><br/>${destination.name}`);
+        layersRef.current.push(marker);
+      }
     }
 
-    if (currentLocation) {
-      L.marker([currentLocation.latitude, currentLocation.longitude], {
+    // Show current driver/vehicle location during journey
+    if (currentLocation && hasWaypoints) {
+      const marker = L.marker([currentLocation.latitude, currentLocation.longitude], {
         icon: driverMarker,
       })
         .addTo(map.current)
-        .bindPopup('<strong>Lokasi Saat Ini</strong>');
+        .bindPopup('<strong>Lokasi Driver Saat Ini</strong>');
+      layersRef.current.push(marker);
     }
 
-    // Add waypoints
-    if (waypoints && waypoints.length > 0) {
-      waypoints.forEach((waypoint) => {
-        L.marker([waypoint.latitude, waypoint.longitude], {
-          icon: waypointMarker,
+    // Add waypoints (recorded GPS points during journey)
+    if (hasWaypoints) {
+      waypoints.forEach((waypoint, index) => {
+        const isFirst = index === 0;
+        const marker = L.marker([waypoint.latitude, waypoint.longitude], {
+          icon: isFirst ? pickupMarker : waypointMarker, // First waypoint is starting point
         })
           .addTo(map.current!)
           .bindPopup(
-            `<small>Waktu: ${new Date(waypoint.timestamp).toLocaleTimeString('id-ID')}</small>`
+            isFirst 
+              ? '<strong>🚗 Titik Keberangkatan</strong><br/>' + new Date(waypoint.timestamp).toLocaleString('id-ID')
+              : `<small>Waktu: ${new Date(waypoint.timestamp).toLocaleTimeString('id-ID')}</small>`
           );
+        layersRef.current.push(marker);
       });
 
       // Draw polyline connecting waypoints
@@ -114,36 +179,65 @@ export function GPSMap({
         w.longitude,
       ]);
 
-      L.polyline(waypointCoords, {
+      const polyline = L.polyline(waypointCoords, {
         color: '#FF9800',
         weight: 3,
         opacity: 0.7,
         smoothFactor: 1.0,
       }).addTo(map.current);
+      layersRef.current.push(polyline);
 
       // Fit bounds to show all waypoints
-      if (waypointCoords.length > 0) {
-        const bounds = L.latLngBounds(waypointCoords);
-        if (pickup) bounds.extend([pickup.lat, pickup.lng]);
-        if (destination) bounds.extend([destination.lat, destination.lng]);
-        map.current.fitBounds(bounds, { padding: [50, 50] });
-      }
-    } else if (pickup && destination) {
-      // If no waypoints, fit bounds between pickup and destination
-      const bounds = L.latLngBounds([
-        [pickup.lat, pickup.lng],
-        [destination.lat, destination.lng],
-      ]);
+      const bounds = L.latLngBounds(waypointCoords);
+      if (showPickupDestination && pickup) bounds.extend([pickup.lat, pickup.lng]);
+      if (showPickupDestination && destination) bounds.extend([destination.lat, destination.lng]);
+      if (currentLocation) bounds.extend([currentLocation.latitude, currentLocation.longitude]);
       map.current.fitBounds(bounds, { padding: [50, 50] });
-    }
-
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
+    } else if (!liveUserLocation) {
+      // No waypoints and no live location: keep default center
+      // (This happens when viewing old completed trips)
+      if (pickup) {
+        map.current.setView([pickup.lat, pickup.lng], 13);
       }
-    };
-  }, [waypoints, pickup, destination, currentLocation]);
+    }
+  }, [waypoints, pickup, destination, currentLocation, liveUserLocation, showPickupDestination]);
 
-  return <div ref={mapContainer} className={`w-full ${height} rounded-lg border`} />;
+  const toggleFullscreen = () => {
+    if (!mapContainer.current) return;
+    
+    if (!isFullscreen) {
+      // Enter fullscreen
+      if (mapContainer.current.requestFullscreen) {
+        mapContainer.current.requestFullscreen();
+      }
+    } else {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+    setIsFullscreen(!isFullscreen);
+  };
+
+  return (
+    <div className="relative">
+      <div ref={mapContainer} className={`w-full ${height} rounded-lg border`} />
+      
+      {/* Fullscreen Button */}
+      <button
+        onClick={toggleFullscreen}
+        className="absolute top-2 right-2 z-10 bg-white hover:bg-gray-100 p-2 rounded-lg shadow-md border border-gray-200 transition-colors"
+        title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+      >
+        {isFullscreen ? (
+          <Minimize2 className="h-5 w-5 text-gray-700" />
+        ) : (
+          <Maximize2 className="h-5 w-5 text-gray-700" />
+        )}
+      </button>
+    </div>
+  );
 }
+
+export default GPSMap;
+export { GPSMap };

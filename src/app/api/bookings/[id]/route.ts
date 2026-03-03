@@ -95,6 +95,16 @@ export async function PUT(
 
     const data = await request.json();
     const newStatus = data.status as BookingStatus | undefined;
+    const isApprovingUnassignedPendingBooking =
+      currentUser.role === 'DRIVER' &&
+      currentBooking.status === BookingStatus.PENDING &&
+      currentBooking.driverId === null &&
+      newStatus === BookingStatus.APPROVED;
+    const isRejectingUnassignedPendingBooking =
+      currentUser.role === 'DRIVER' &&
+      currentBooking.status === BookingStatus.PENDING &&
+      currentBooking.driverId === null &&
+      newStatus === BookingStatus.CANCELLED;
 
     // Prepare update data
     let updateData: Record<string, unknown> = {};
@@ -201,7 +211,11 @@ export async function PUT(
 
     // Driver status updates only - no rating allowed
     if (currentUser.role === 'DRIVER') {
-      if (currentBooking.driverId !== currentUserId) {
+      if (
+        currentBooking.driverId !== currentUserId &&
+        !isApprovingUnassignedPendingBooking &&
+        !isRejectingUnassignedPendingBooking
+      ) {
         return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengubah pesanan ini' }, { status: 403 });
       }
       // Drivers are not allowed to add ratings
@@ -256,7 +270,12 @@ export async function PUT(
     // If no updates were made, return error
     if (Object.keys(updateData).length === 0) {
       // Check if this is a permission issue or just invalid request
-      if (currentUser.role === 'DRIVER' && currentBooking.driverId !== currentUserId) {
+      if (
+        currentUser.role === 'DRIVER' &&
+        currentBooking.driverId !== currentUserId &&
+        !isApprovingUnassignedPendingBooking &&
+        !isRejectingUnassignedPendingBooking
+      ) {
         return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengubah pesanan ini' }, { status: 403 });
       }
       return NextResponse.json({ error: 'Tidak ada perubahan yang dilakukan' }, { status: 400 });

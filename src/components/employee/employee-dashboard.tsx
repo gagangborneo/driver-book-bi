@@ -17,6 +17,7 @@ import { QuickActionsGrid } from '@/components/shared/quick-actions-grid';
 import { TravelDetailCard } from '@/components/shared/travel-detail-card';
 import { TripRating } from '@/components/shared/trip-rating';
 import { MapVisualization } from '@/components/shared/map-visualization';
+import { GPSMapWrapper } from '@/components/shared/gps-map-wrapper';
 
 interface EmployeeDashboardProps {
   token: string;
@@ -27,6 +28,10 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
   const router = useRouter();
   const [stats, setStats] = useState({ totalBookings: 0, pendingBookings: 0, completedBookings: 0, inProgressBookings: 0 });
   const [activeBooking, setActiveBooking] = useState<Record<string, unknown> | null>(null);
+  const [gpsWaypoints, setGpsWaypoints] = useState<Array<Record<string, unknown>>>([]);
+  const [isLoadingGPS, setIsLoadingGPS] = useState(false);
+  const [liveUserLocation, setLiveUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const [bookingForm, setBookingForm] = useState({
     pickupLocation: '',
     destination: '',
@@ -69,6 +74,106 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [token]);
+
+  // Track live user location when there's an active booking (but no waypoints yet)
+  useEffect(() => {
+    if (!activeBooking) {
+      setLiveUserLocation(null);
+      return;
+    }
+
+    // Only track live location before journey starts (APPROVED status, no waypoints)
+    const shouldTrackLiveLocation = 
+      (activeBooking.status as string) === 'APPROVED' && 
+      gpsWaypoints.length === 0;
+
+    if (!shouldTrackLiveLocation) {
+      return;
+    }
+
+    // Request location permission and start tracking
+    const startTracking = async () => {
+      if ('geolocation' in navigator) {
+        try {
+          // Request permission with high accuracy
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            });
+          });
+
+          setLiveUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          setLocationPermissionGranted(true);
+
+          // Start watching position for real-time updates
+          const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+              setLiveUserLocation({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+              });
+            },
+            (error) => {
+              console.error('Error watching position:', error);
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 5000,
+            }
+          );
+
+          return () => {
+            navigator.geolocation.clearWatch(watchId);
+          };
+        } catch (error) {
+          console.error('Error getting location:', error);
+          toast({
+            title: 'Akses Lokasi Ditolak',
+            description: 'Untuk melihat lokasi Anda di peta, izinkan akses lokasi di browser.',
+            variant: 'destructive',
+          });
+        }
+      } else {
+        toast({
+          title: 'GPS Tidak Tersedia',
+          description: 'Perangkat Anda tidak mendukung GPS.',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    startTracking();
+  }, [activeBooking, gpsWaypoints, toast]);
+
+  // Load GPS waypoints when active booking changes
+  useEffect(() => {
+    if (activeBooking && activeBooking.id && ['APPROVED', 'DEPARTED', 'ARRIVED', 'RETURNING'].includes(activeBooking.status as string)) {
+      const loadWaypoints = async () => {
+        setIsLoadingGPS(true);
+        try {
+          const response = await api(`/gps?bookingId=${activeBooking.id}`, {}, token);
+          setGpsWaypoints(response.waypoints || []);
+        } catch (error) {
+          console.error('Error loading GPS waypoints:', error);
+          setGpsWaypoints([]);
+        } finally {
+          setIsLoadingGPS(false);
+        }
+      };
+      loadWaypoints();
+      // Refresh GPS data every 10 seconds for active trips
+      const gpsInterval = setInterval(loadWaypoints, 10000);
+      return () => clearInterval(gpsInterval);
+    } else {
+      setGpsWaypoints([]);
+    }
+  }, [activeBooking, token]);
 
   const handleBooking = async () => {
     setIsSubmitting(true);
@@ -135,6 +240,18 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
     },
   ];
 
+  // Helper function to parse coordinates
+  const parseCoords = (coordsStr: string | null) => {
+    if (!coordsStr) return null;
+    try {
+      if (typeof coordsStr === 'object') return coordsStr as { lat: number; lng: number; name?: string };
+      const parsed = JSON.parse(coordsStr as string);
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <WelcomeBanner
@@ -158,15 +275,68 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
           </h3>
           
           <div className="space-y-3">
-            {/* Map Visualization */}
+            {/* GPS Map Visualization - Always show for non-PENDING trips */}
             {(activeBooking.status as string) !== 'PENDING' && (
               <Card className="border-orange-200">
                 <CardContent className="p-4">
-                  <MapVisualization 
-                    pickup={activeBooking.pickupCoords as { lat: number; lng: number; name: string } | null}
-                    destination={activeBooking.destinationCoords as { lat: number; lng: number; name: string } | null}
-                    currentStatus={activeBooking.status as string}
-                  />
+                  <div className="mb-3">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      🗺️ Peta Perjalanan Real-time
+                      {isLoadingGPS && <span className="text-xs text-muted-foreground">(Memuat...)</span>}
+                      {!isLoadingGPS && gpsWaypoints.length > 0 && (
+                        <span className="text-xs text-muted-foreground">({gpsWaypoints.length} titik lokasi)</span>
+                      )}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {gpsWaypoints.length === 0 
+                        ? '📍 Menampilkan lokasi Anda saat ini. Rute akan muncul saat driver mulai perjalanan.'
+                        : 'Peta menampilkan rute perjalanan driver secara real-time'
+                      }
+                    </p>
+                  </div>
+                  {(() => {
+                    const pickupCoords = parseCoords(activeBooking.pickupCoords as string);
+                    const destinationCoords = parseCoords(activeBooking.destinationCoords as string);
+                    const currentCoords = parseCoords(activeBooking.currentCoords as string);
+                    
+                    const pickupData = pickupCoords
+                      ? { lat: pickupCoords.lat, lng: pickupCoords.lng, name: activeBooking.pickupLocation as string }
+                      : null;
+                    const destinationData = destinationCoords
+                      ? { lat: destinationCoords.lat, lng: destinationCoords.lng, name: activeBooking.destination as string }
+                      : null;
+
+                    // Only show pickup/destination markers when journey has started (has waypoints)
+                    const hasStarted = gpsWaypoints.length > 0;
+
+                    return (
+                      <GPSMapWrapper
+                        waypoints={gpsWaypoints.map((w: Record<string, unknown>) => ({
+                          id: w.id as string,
+                          latitude: w.latitude as number,
+                          longitude: w.longitude as number,
+                          accuracy: w.accuracy as number | undefined,
+                          timestamp: w.timestamp as string,
+                        }))}
+                        pickup={pickupData}
+                        destination={destinationData}
+                        currentLocation={currentCoords ? { latitude: currentCoords.lat, longitude: currentCoords.lng } : undefined}
+                        liveUserLocation={liveUserLocation}
+                        height="h-80"
+                        showPickupDestination={hasStarted}
+                      />
+                    );
+                  })()}
+                  {!isLoadingGPS && gpsWaypoints.length === 0 && liveUserLocation && (
+                    <p className="text-xs text-center text-green-600 mt-2 p-2 bg-green-50 rounded border border-green-200">
+                      ✓ Lokasi Anda terdeteksi. Menunggu driver memulai perjalanan...
+                    </p>
+                  )}
+                  {!isLoadingGPS && gpsWaypoints.length === 0 && !liveUserLocation && !locationPermissionGranted && (
+                    <p className="text-xs text-center text-amber-600 mt-2 p-2 bg-amber-50 rounded border border-amber-200">
+                      ℹ️ Izinkan akses lokasi untuk melihat posisi Anda di peta
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -192,7 +362,7 @@ export function EmployeeDashboard({ token, user }: EmployeeDashboardProps) {
 
       {/* Booking Modal */}
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md z-50">
           <DialogHeader>
             <DialogTitle>Pesan Driver</DialogTitle>
             <DialogDescription>

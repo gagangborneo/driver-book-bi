@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapVisualization } from '@/components/shared/map-visualization';
-import { GPSMap } from '@/components/shared/gps-map';
+import { GPSMapWrapper } from '@/components/shared/gps-map-wrapper';
 import { TripRatingDisplay } from '@/components/shared/trip-rating';
 import { formatDate } from '@/lib/format';
 import { api } from '@/lib/api';
@@ -303,7 +303,7 @@ export function TravelDetailCard({ booking, showDriver = true, token }: TravelDe
                 <span className="text-xs text-muted-foreground ml-auto">{gpsWaypoints.length} titik lokasi</span>
               )}
             </div>
-            <GPSMap
+            <GPSMapWrapper
               waypoints={gpsWaypoints.map((w: Record<string, unknown>) => ({
                 id: w.id as string,
                 latitude: w.latitude as number,
@@ -315,6 +315,7 @@ export function TravelDetailCard({ booking, showDriver = true, token }: TravelDe
               destination={destData}
               currentLocation={currentCoords ? { latitude: currentCoords.lat, longitude: currentCoords.lng } : undefined}
               height="h-80"
+              showPickupDestination={gpsWaypoints.length > 0}
             />
             {gpsWaypoints.length === 0 && !isLoadingGPS && (
               <div className="text-center py-6 text-muted-foreground text-sm">

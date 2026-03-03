@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { WelcomeBanner } from '@/components/shared/welcome-banner';
 import { QuickActionsGrid } from '@/components/shared/quick-actions-grid';
 import { LoadingSpinner } from '@/components/shared/loading';
-import { GPSMap } from '@/components/shared/gps-map';
+import { GPSMapWrapper } from '@/components/shared/gps-map-wrapper';
 import { GPSPermissionDialog } from '@/components/shared/gps-permission-dialog';
 
 interface DriverDashboardProps {
@@ -54,6 +54,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
   const [odometerValue, setOdometerValue] = useState<string>('');
   const [pendingOdometerValue, setPendingOdometerValue] = useState<number | null>(null);
   const [pendingOdometerAction, setPendingOdometerAction] = useState<'depart' | 'complete' | null>(null);
+  const [liveDriverLocation, setLiveDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [logBookForm, setLogBookForm] = useState({
     vehicleId: '__select__',
     type: 'WASHING',
@@ -93,6 +94,64 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [token]);
+
+  // Track live driver location when there's an active booking (APPROVED status, before departure)
+  useEffect(() => {
+    if (!activeBooking) {
+      setLiveDriverLocation(null);
+      return;
+    }
+
+    // Only track live location for APPROVED status (before journey starts)
+    const shouldTrackLiveLocation = (activeBooking.status as string) === 'APPROVED';
+
+    if (!shouldTrackLiveLocation) {
+      setLiveDriverLocation(null);
+      return;
+    }
+
+    // Start watching position for real-time updates
+    if ('geolocation' in navigator) {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setLiveDriverLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error('Error watching driver position:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 5000,
+        }
+      );
+
+      // Initial position
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLiveDriverLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error('Error getting driver position:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+
+      return () => {
+        navigator.geolocation.clearWatch(watchId);
+      };
+    }
+  }, [activeBooking]);
 
   const normalizeCoords = (value: unknown) => {
     if (!value) return null;
@@ -560,12 +619,14 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
                 }
 
                 return (
-                  <GPSMap
+                  <GPSMapWrapper
                     waypoints={[]}
                     pickup={pickup}
                     destination={destination}
                     currentLocation={currentLocation}
+                    liveUserLocation={liveDriverLocation}
                     height="h-64"
+                    showPickupDestination={false}
                   />
                 );
               })()}
@@ -810,7 +871,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
       {/* LogBook Modal */}
       <Dialog open={showLogBookModal} onOpenChange={setShowLogBookModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md z-50">
           <DialogHeader>
             <DialogTitle>Catat LogBook</DialogTitle>
             <DialogDescription>
@@ -939,7 +1000,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
       {/* Accept Booking Modal */}
       <Dialog open={showAcceptModal} onOpenChange={setShowAcceptModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md z-50">
           <DialogHeader>
             <DialogTitle>Terima Pesanan Driver</DialogTitle>
             <DialogDescription>
@@ -1004,7 +1065,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
       {/* Reject Booking Modal */}
       <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md z-50">
           <DialogHeader>
             <DialogTitle>Tolak Pesanan</DialogTitle>
             <DialogDescription>
@@ -1054,7 +1115,7 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
 
       {/* Odometer Input Modal */}
       <Dialog open={showOdometerModal} onOpenChange={setShowOdometerModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md z-50">
           <DialogHeader>
             <DialogTitle>
               {pendingOdometerAction === 'depart' 
@@ -1078,9 +1139,9 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
                 onChange={(e) => setOdometerValue(e.target.value)}
                 min="0"
               />
-              {activeBooking?.startOdometer && pendingOdometerAction === 'complete' && (
+              {activeBooking?.startOdometer != null && pendingOdometerAction === 'complete' && (
                 <p className="text-xs text-muted-foreground">
-                  Odometer awal: {activeBooking.startOdometer as number} km
+                  Odometer awal: {String(activeBooking.startOdometer)} km
                 </p>
               )}
             </div>
