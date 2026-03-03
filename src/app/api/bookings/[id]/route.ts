@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { BookingStatus, VehicleStatus } from '@prisma/client';
+import { BookingStatus, VehicleStatus, DriverStatus } from '@prisma/client';
 import { notifyBookingAccepted, notifyBookingCompleted, notifyJourneyCompleted } from '@/lib/whatsapp-notification';
 import { verifyToken } from '@/lib/auth-utils';
 
@@ -114,7 +114,7 @@ export async function PUT(
       // Driver can accept an unassigned pending booking (driverId = null)
       if (currentBooking.status === BookingStatus.PENDING && newStatus === BookingStatus.APPROVED && currentBooking.driverId === null) {
         // Verify driver is available
-        if (currentUser.driverStatus !== 'AVAILABLE') {
+        if (currentUser.driverStatus !== DriverStatus.AVAILABLE) {
           return NextResponse.json(
             { error: 'Anda harus status AVAILABLE untuk menerima pesanan' },
             { status: 400 }
@@ -133,6 +133,13 @@ export async function PUT(
       }
       // Driver can accept a pending booking assigned to them (original logic)
       else if (currentBooking.status === BookingStatus.PENDING && newStatus === BookingStatus.APPROVED && currentBooking.driverId === currentUserId) {
+        // Verify driver is available
+        if (currentUser.driverStatus !== DriverStatus.AVAILABLE) {
+          return NextResponse.json(
+            { error: 'Anda harus status AVAILABLE untuk menerima pesanan' },
+            { status: 400 }
+          );
+        }
         updateData.status = BookingStatus.APPROVED;
         if (data.vehicleId) {
           updateData.vehicleId = data.vehicleId;

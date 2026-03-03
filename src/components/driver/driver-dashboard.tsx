@@ -853,14 +853,14 @@ export function DriverDashboard({ token, user }: DriverDashboardProps) {
                       <Check className="h-4 w-4 mr-2" />
                       Terima
                     </Button>
-                    <Button 
+                    {/* <Button 
                       variant="destructive"
                       className="flex-1"
                       onClick={() => handleBookingAction(booking.id as string, 'reject')}
                     >
                       <XCircle className="h-4 w-4 mr-2" />
                       Tolak
-                    </Button>
+                    </Button> */}
                   </div>
                 </CardContent>
               </Card>
