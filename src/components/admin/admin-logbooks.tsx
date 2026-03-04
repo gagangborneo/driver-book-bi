@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoadingSkeleton } from '@/components/shared/loading';
-import { BookText, Car, User, Calendar, DollarSign, Gauge, Search } from 'lucide-react';
+import { BookText, Car, User, Calendar, DollarSign, Gauge, Search, Droplets, Trophy, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend,
+} from 'recharts';
 
 interface AdminLogbooksProps {
   token: string;
@@ -112,6 +115,51 @@ export function AdminLogbooks({ token }: AdminLogbooksProps) {
     }).format(amount);
   };
 
+  // === Washing (Pencucian) Statistics ===
+  const washingStats = useMemo(() => {
+    const washingLogs = logbooks.filter((log) => log.type === 'WASHING');
+
+    // Group by driver
+    const driverMap = new Map<string, { name: string; count: number; totalCost: number }>();
+    washingLogs.forEach((log) => {
+      const existing = driverMap.get(log.driverId);
+      if (existing) {
+        existing.count += 1;
+        existing.totalCost += log.cost || 0;
+      } else {
+        driverMap.set(log.driverId, {
+          name: log.driver.name,
+          count: 1,
+          totalCost: log.cost || 0,
+        });
+      }
+    });
+
+    // Sort by count descending
+    const ranked = Array.from(driverMap.values())
+      .sort((a, b) => b.count - a.count);
+
+    return ranked;
+  }, [logbooks]);
+
+  // Logbook type distribution (pie chart)
+  const typeDistribution = useMemo(() => {
+    const typeMap: Record<string, number> = { WASHING: 0, SERVICE: 0, FUEL: 0, OTHER: 0 };
+    logbooks.forEach((log) => {
+      typeMap[log.type] = (typeMap[log.type] || 0) + 1;
+    });
+    return Object.entries(typeMap)
+      .filter(([, count]) => count > 0)
+      .map(([type, count]) => ({
+        name: logBookTypeLabels[type],
+        value: count,
+        type,
+      }));
+  }, [logbooks]);
+
+  const PIE_COLORS = ['#3b82f6', '#f97316', '#22c55e', '#6b7280'];
+  const BAR_COLORS = ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe', '#eff6ff', '#cbd5e1', '#94a3b8', '#64748b', '#475569'];
+
   return (
     <div className="space-y-6">
       <div>
@@ -179,6 +227,198 @@ export function AdminLogbooks({ token }: AdminLogbooksProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Washing Statistics Charts */}
+      {!isLoading && logbooks.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Top Drivers by Washing Count */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-blue-600" />
+                Top Driver Pencucian Terbanyak
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Jumlah logbook pencucian per driver</p>
+            </CardHeader>
+            <CardContent>
+              {washingStats.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Droplets className="h-10 w-10 mb-2" />
+                  <p className="text-sm">Belum ada data pencucian</p>
+                </div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={Math.max(200, washingStats.slice(0, 10).length * 44)}>
+                    <BarChart
+                      data={washingStats.slice(0, 10)}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" allowDecimals={false} fontSize={12} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={100}
+                        fontSize={12}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [`${value} kali`, 'Pencucian']}
+                        contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                      />
+                      <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                        {washingStats.slice(0, 10).map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  {/* Ranking List */}
+                  <div className="mt-4 space-y-2">
+                    {washingStats.slice(0, 5).map((driver, index) => (
+                      <div key={driver.name} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white ${
+                            index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-700' : 'bg-slate-300'
+                          }`}>
+                            {index + 1}
+                          </span>
+                          <span className="font-medium">{driver.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                            {driver.count}x cuci
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {formatCurrency(driver.totalCost)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Washing Cost per Driver */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-green-600" />
+                Biaya Pencucian per Driver
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Total biaya pencucian per driver</p>
+            </CardHeader>
+            <CardContent>
+              {washingStats.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <DollarSign className="h-10 w-10 mb-2" />
+                  <p className="text-sm">Belum ada data biaya pencucian</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={Math.max(200, washingStats.filter(d => d.totalCost > 0).slice(0, 10).length * 44)}>
+                  <BarChart
+                    data={washingStats.filter(d => d.totalCost > 0).slice(0, 10)}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      fontSize={12}
+                      tickFormatter={(value) =>
+                        new Intl.NumberFormat('id-ID', { notation: 'compact', compactDisplay: 'short' }).format(value)
+                      }
+                    />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={100}
+                      fontSize={12}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [formatCurrency(value), 'Total Biaya']}
+                      contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                    />
+                    <Bar dataKey="totalCost" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                      {washingStats.filter(d => d.totalCost > 0).slice(0, 10).map((_, index) => (
+                        <Cell key={`cost-${index}`} fill={index % 2 === 0 ? '#22c55e' : '#4ade80'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Logbook Type Distribution */}
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Droplets className="h-5 w-5 text-purple-600" />
+                Distribusi Tipe Logbook
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Perbandingan jumlah logbook berdasarkan tipe</p>
+            </CardHeader>
+            <CardContent>
+              {typeDistribution.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <BookText className="h-10 w-10 mb-2" />
+                  <p className="text-sm">Belum ada data logbook</p>
+                </div>
+              ) : (
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={typeDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={90}
+                        paddingAngle={4}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                        fontSize={12}
+                      >
+                        {typeDistribution.map((_, index) => (
+                          <Cell key={`pie-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => [`${value} logbook`, 'Jumlah']}
+                        contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                      />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                  {/* Summary beside pie */}
+                  <div className="space-y-3 min-w-45">
+                    {typeDistribution.map((item, index) => (
+                      <div key={item.name} className="flex items-center gap-3">
+                        <div
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.value} logbook</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Logbook List */}
       {isLoading ? (
