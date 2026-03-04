@@ -64,6 +64,7 @@ model User {
   bookingsAsDriver   Booking[]  @relation("DriverBookings")
   logBooks           LogBook[]
   vehicleAssignments Vehicle[]
+  fcmTokens          FCMToken[]
 }
 
 model Vehicle {
@@ -181,4 +182,36 @@ model WhatsAppTemplate {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Push Notification (Firebase Cloud Messaging)
+model PushNotificationConfig {
+  id        String   @id @default(cuid())
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PushNotificationTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique // NEW_BOOKING, BOOKING_ACCEPTED, BOOKING_COMPLETED
+  type      String   // NEW_BOOKING, BOOKING_ACCEPTED, BOOKING_COMPLETED
+  title     String   // Notification title
+  body      String   // Notification body with placeholders {employee_name}, {driver_name}, {pickup}, {destination}, {time}
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FCMToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  device    String?  // device info
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

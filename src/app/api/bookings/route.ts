@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { BookingStatus, VehicleStatus, DriverStatus } from '@prisma/client';
 import { notifyNewBooking } from '@/lib/whatsapp-notification';
+import { pushNotifyNewBooking } from '@/lib/push-notification';
 import { verifyToken } from '@/lib/auth-utils';
 
 function getUserIdFromToken(authHeader: string | null): string | null {
@@ -179,6 +180,21 @@ export async function POST(request: NextRequest) {
     } catch (whatsappError) {
       console.error('WhatsApp notification failed:', whatsappError);
       // Don't fail the booking creation if WhatsApp notification fails
+    }
+
+    // Send Push Notification to all available drivers
+    try {
+      const employee = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
+      await pushNotifyNewBooking({
+        employee_name: employee?.name || 'Karyawan',
+        pickup: pickupLocation,
+        destination,
+        time: bookingTime,
+        booking_id: newBooking.id,
+      });
+    } catch (pushError) {
+      console.error('Push notification failed:', pushError);
+      // Don't fail the booking creation if push notification fails
     }
 
     // Parse location coordinates

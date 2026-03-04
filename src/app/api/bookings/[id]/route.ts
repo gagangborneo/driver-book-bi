@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { BookingStatus, VehicleStatus, DriverStatus } from '@prisma/client';
 import { notifyBookingAccepted, notifyBookingCompleted, notifyJourneyCompleted } from '@/lib/whatsapp-notification';
+import { pushNotifyBookingAccepted, pushNotifyBookingCompleted } from '@/lib/push-notification';
 import { verifyToken } from '@/lib/auth-utils';
 
 function getUserIdFromToken(authHeader: string | null): string | null {
@@ -318,6 +319,24 @@ export async function PUT(
       }
     }
 
+    // Send Push Notification to employee when driver accepts booking
+    if (
+      currentUser.role === 'DRIVER' &&
+      currentBooking.status === BookingStatus.PENDING &&
+      updatedBooking.status === BookingStatus.APPROVED
+    ) {
+      try {
+        await pushNotifyBookingAccepted(updatedBooking.employeeId, {
+          driver_name: currentUser.name,
+          pickup: updatedBooking.pickupLocation,
+          destination: updatedBooking.destination,
+          booking_id: updatedBooking.id,
+        });
+      } catch (pushError) {
+        console.error('Push notification (accepted) failed:', pushError);
+      }
+    }
+
     // Send WhatsApp notification when booking is completed
     if (
       currentUser.role === 'DRIVER' &&
@@ -344,6 +363,24 @@ export async function PUT(
       } catch (whatsappError) {
         console.error('WhatsApp notification on completion failed:', whatsappError);
         // Don't fail the booking update if WhatsApp notification fails
+      }
+    }
+
+    // Send Push Notification to employee when trip is completed
+    if (
+      currentUser.role === 'DRIVER' &&
+      currentBooking.status !== BookingStatus.COMPLETED &&
+      updatedBooking.status === BookingStatus.COMPLETED
+    ) {
+      try {
+        await pushNotifyBookingCompleted(updatedBooking.employeeId, {
+          driver_name: updatedBooking.driver?.name || currentUser.name,
+          pickup: updatedBooking.pickupLocation,
+          destination: updatedBooking.destination,
+          booking_id: updatedBooking.id,
+        });
+      } catch (pushError) {
+        console.error('Push notification (completed) failed:', pushError);
       }
     }
 

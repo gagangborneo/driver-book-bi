@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth-store';
 import { Navigation } from '@/components/layout/navigation';
+import { PushNotificationProvider } from '@/components/push-notification-provider';
 
 const roleRouteMap: Record<string, string> = {
   ADMIN: '/admin',
@@ -40,11 +41,17 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
   // Admin routes have their own layout
   if (pathname.startsWith('/admin')) {
-    return children;
+    return (
+      <>
+        <PushNotificationProvider />
+        {children}
+      </>
+    );
   }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      <PushNotificationProvider />
       <Navigation
         role={user.role}
         currentPath={pathname}

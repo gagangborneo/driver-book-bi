@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
-  Home, Users, Car, FileText, Trophy, User as UserIcon, LogOut, Menu, X, MessageSquare, BookText, BarChart3
+  Home, Users, Car, FileText, Trophy, User as UserIcon, LogOut, Menu, X, MessageSquare, BookText, BarChart3, Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -21,6 +21,7 @@ const adminNavItems = [
   { href: '/admin/statistics', label: 'Statistik Perjalanan', icon: BarChart3 },
   { href: '/admin/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/admin/whatsapp', label: 'WhatsApp', icon: MessageSquare },
+  { href: '/admin/push-notification', label: 'Push Notification', icon: Bell },
   { href: '/admin/account', label: 'Akun', icon: UserIcon },
 ];
 
