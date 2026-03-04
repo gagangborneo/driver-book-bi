@@ -18,28 +18,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { token, device } = await request.json();
+    const body = await request.json();
+    const token = body?.token;
+    const device = body?.device;
 
-    if (!token) {
+    if (!token || typeof token !== "string") {
       return NextResponse.json({ error: "Token is required" }, { status: 400 });
     }
 
-    // Upsert the token (update if exists, create if not)
-    const fcmToken = await db.fCMToken.upsert({
-      where: { token },
-      update: {
-        userId,
-        device: device || null,
-        updatedAt: new Date(),
-      },
-      create: {
-        userId,
-        token,
-        device: device || null,
-      },
-    });
+    try {
+      // Upsert the token (update if exists, create if not)
+      const fcmToken = await db.fCMToken.upsert({
+        where: { token },
+        update: {
+          userId,
+          device: device || null,
+          updatedAt: new Date(),
+        },
+        create: {
+          userId,
+          token,
+          device: device || null,
+        },
+      });
 
-    return NextResponse.json({ success: true, fcmToken });
+      return NextResponse.json({ success: true, fcmToken });
+    } catch (dbError) {
+      console.error("Database error registering FCM token:", dbError);
+      return NextResponse.json({ error: "Database error" }, { status: 500 });
+    }
   } catch (error) {
     console.error("Register FCM token error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

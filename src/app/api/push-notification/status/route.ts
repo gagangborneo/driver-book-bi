@@ -18,12 +18,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const config = await db.pushNotificationConfig.findFirst();
-    const isActive = config?.isActive ?? false;
-
-    return NextResponse.json({ isActive });
+    try {
+      const config = await db.pushNotificationConfig.findFirst();
+      const isActive = config?.isActive ?? false;
+      return NextResponse.json({ isActive });
+    } catch {
+      // Table might not exist yet or other DB error - just return false
+      return NextResponse.json({ isActive: false });
+    }
   } catch (error) {
     console.error("Get push notification status error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ isActive: false });
   }
 }
