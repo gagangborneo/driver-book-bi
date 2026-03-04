@@ -3,6 +3,8 @@
  * Handles sending notifications to WhatsApp groups via WACenter API
  */
 
+import { db } from '@/lib/db';
+
 interface SendWhatsAppGroupParams {
   message: string;
   group?: string;
@@ -10,20 +12,50 @@ interface SendWhatsAppGroupParams {
 }
 
 /**
+ * Get WhatsApp configuration from database
+ */
+async function getWhatsAppConfig() {
+  try {
+    const config = await db.whatsAppConfig.findFirst();
+    if (!config || !config.isActive) {
+      console.warn('WhatsApp is not configured or not active');
+      return null;
+    }
+    return config;
+  } catch (error) {
+    console.error('Error fetching WhatsApp config:', error);
+    return null;
+  }
+}
+
+/**
  * Send notification to WhatsApp group
  * @param message - The message to send
  * @param group - Group identifier (default: 'WAGDriver')
- * @param deviceId - Device ID for WACenter API (from env)
+ * @param deviceId - Device ID for WACenter API (optional, will use DB config if not provided)
  */
 export async function sendWhatsAppGroupNotification(
   message: string,
   group: string = 'WAGDriver',
-  deviceId: string = process.env.WHATSAPP_DEVICE_ID || 'e6683d05a9bfa0f2ca6087857cff17ed'
+  deviceId?: string
 ): Promise<boolean> {
   try {
-    const encodedMessage = encodeURIComponent(message);
-    const url = `https://app.whacenter.com/api/sendGroup?group=${group}&message=${encodedMessage}&device_id=${deviceId}`;
+    // Use provided device ID, or fetch from database config
+    let finalDeviceId = deviceId;
+    
+    if (!finalDeviceId) {
+      const config = await getWhatsAppConfig();
+      if (!config) {
+        console.error('WhatsApp configuration not available');
+        return false;
+      }
+      finalDeviceId = config.deviceId;
+    }
 
+    const encodedMessage = encodeURIComponent(message);
+    const url = `https://app.whacenter.com/api/sendGroup?group=${group}&message=${encodedMessage}&device_id=${finalDeviceId}`;
+
+    console.log('Sending WhatsApp notification to group:', group);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -33,6 +65,7 @@ export async function sendWhatsAppGroupNotification(
 
     if (!response.ok) {
       console.error(`WhatsApp notification error: ${response.status} ${response.statusText}`);
+      console.error('URL:', url);
       return false;
     }
 
@@ -67,17 +100,30 @@ Segera cek aplikasi: ${appUrl}`;
  * Send notification to individual WhatsApp number
  * @param phoneNumber - Phone number with country code (e.g., 628125144744)
  * @param message - The message to send
- * @param deviceId - Device ID for WACenter API (from env)
+ * @param deviceId - Device ID for WACenter API (optional, will use DB config if not provided)
  */
 export async function sendWhatsAppToNumber(
   phoneNumber: string,
   message: string,
-  deviceId: string = process.env.WHATSAPP_DEVICE_ID || 'e6683d05a9bfa0f2ca6087857cff17ed'
+  deviceId?: string
 ): Promise<boolean> {
   try {
-    const encodedMessage = encodeURIComponent(message);
-    const url = `https://app.whacenter.com/api/send?device_id=${deviceId}&number=${phoneNumber}&message=${encodedMessage}`;
+    // Use provided device ID, or fetch from database config
+    let finalDeviceId = deviceId;
+    
+    if (!finalDeviceId) {
+      const config = await getWhatsAppConfig();
+      if (!config) {
+        console.error('WhatsApp configuration not available');
+        return false;
+      }
+      finalDeviceId = config.deviceId;
+    }
 
+    const encodedMessage = encodeURIComponent(message);
+    const url = `https://app.whacenter.com/api/send?device_id=${finalDeviceId}&number=${phoneNumber}&message=${encodedMessage}`;
+
+    console.log('Sending WhatsApp message to individual:', phoneNumber);
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -87,6 +133,7 @@ export async function sendWhatsAppToNumber(
 
     if (!response.ok) {
       console.error(`WhatsApp individual message error: ${response.status} ${response.statusText}`);
+      console.error('URL:', url);
       return false;
     }
 
