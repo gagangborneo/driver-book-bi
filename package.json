@@ -20,6 +20,7 @@
     "prisma:seed": "bun ./prisma/seed.ts",
     "prisma:seed:production": "NODE_ENV=production bun ./prisma/seed-production.ts",
     "prisma:seed:production:force": "NODE_ENV=production bun ./prisma/seed-production.ts --force",
+    "prisma:seed:restore": "bun ./prisma/seed-restore.ts",
     "prisma:reset": "prisma migrate reset --force",
     "migration:pre": "bash ./scripts/pre-migration.sh",
     "migration:apply": "bash ./scripts/apply-migration.sh",
