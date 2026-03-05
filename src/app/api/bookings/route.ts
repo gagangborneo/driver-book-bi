@@ -174,9 +174,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Fetch employee info for notifications
+    const employee = await db.user.findUnique({ where: { id: userId }, select: { name: true, phone: true } });
+
     // Send WhatsApp notification to driver group
     try {
-      await notifyNewBooking(pickupLocation, destination, bookingTime);
+      await notifyNewBooking(pickupLocation, destination, bookingTime, employee?.name || undefined, employee?.phone || undefined);
     } catch (whatsappError) {
       console.error('WhatsApp notification failed:', whatsappError);
       // Don't fail the booking creation if WhatsApp notification fails
@@ -184,7 +187,6 @@ export async function POST(request: NextRequest) {
 
     // Send Push Notification to all available drivers
     try {
-      const employee = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
       await pushNotifyNewBooking({
         employee_name: employee?.name || 'Karyawan',
         pickup: pickupLocation,

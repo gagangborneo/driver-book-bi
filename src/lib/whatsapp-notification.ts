@@ -79,20 +79,41 @@ export async function sendWhatsAppGroupNotification(
 }
 
 /**
+ * Format phone number to international format for wa.me/ link
+ * e.g., 085175446620 -> 6285175446620
+ */
+function formatPhoneForWaLink(phone: string): string {
+  let cleaned = phone.replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('0')) {
+    cleaned = '62' + cleaned.substring(1);
+  } else if (!cleaned.startsWith('62')) {
+    cleaned = '62' + cleaned;
+  }
+  return cleaned;
+}
+
+/**
  * Build booking notification message
  */
 export function buildBookingNotificationMessage(
   pickupLocation: string,
   destination: string,
   bookingTime: string,
+  employeeName?: string,
+  employeePhone?: string,
   appUrl: string = 'https://lamin-bpp.web.id/'
 ): string {
+  const phoneLink = employeePhone ? `https://wa.me/${formatPhoneForWaLink(employeePhone)}` : null;
+  const employeeInfo = employeeName
+    ? `\n👤 Pemesan: ${employeeName}${phoneLink ? `\n📞 HP: ${employeePhone} (${phoneLink})` : ''}\n`
+    : '';
+
   return `🚗 Pesanan Driver Baru Masuk!
 
 📍 Jemput: ${pickupLocation}
 📍 Tujuan: ${destination}
 ⏰ Waktu: ${bookingTime}
-
+${employeeInfo}
 Segera cek aplikasi: ${appUrl}`;
 }
 
@@ -152,9 +173,11 @@ export async function sendWhatsAppToNumber(
 export async function notifyNewBooking(
   pickupLocation: string,
   destination: string,
-  bookingTime: string
+  bookingTime: string,
+  employeeName?: string,
+  employeePhone?: string
 ): Promise<boolean> {
-  const message = buildBookingNotificationMessage(pickupLocation, destination, bookingTime);
+  const message = buildBookingNotificationMessage(pickupLocation, destination, bookingTime, employeeName, employeePhone);
   return sendWhatsAppGroupNotification(message);
 }
 
