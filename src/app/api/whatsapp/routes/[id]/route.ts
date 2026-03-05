@@ -24,13 +24,14 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, groupId, description, isActive } = body;
+    const { name, groupId, type, description, isActive } = body;
 
     const route = await db.whatsAppRoute.update({
       where: { id },
       data: {
         ...(name && { name }),
         ...(groupId && { groupId }),
+        ...(type && { type }),
         ...(description !== undefined && { description }),
         ...(isActive !== undefined && { isActive }),
       },

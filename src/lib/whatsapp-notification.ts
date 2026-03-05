@@ -76,6 +76,22 @@ export async function sendWhatsAppGroupNotification(
 }
 
 /**
+ * Get WhatsApp group ID from database by notification type.
+ * Falls back to 'WAGDriver' if not found.
+ */
+async function getGroupByType(type: string): Promise<string> {
+  try {
+    const route = await db.whatsAppRoute.findFirst({
+      where: { type, isActive: true },
+    });
+    return route?.groupId || 'WAGDriver';
+  } catch (error) {
+    console.error(`Error fetching WhatsApp route for type ${type}:`, error);
+    return 'WAGDriver';
+  }
+}
+
+/**
  * Format phone number to international format for wa.me/ link
  * e.g., 085175446620 -> 6285175446620
  */
@@ -132,12 +148,6 @@ Driver: {driverName}
 📍 Ke: {destination}
 
 Silakan berikan rating di aplikasi: {appUrl}`,
-
-  JOURNEY_COMPLETED: `🎉 Perjalanan Selesai!
-
-Driver: {driverName}
-📍 Dari: {pickupLocation}
-📍 Ke: {destination}`,
 };
 
 /**
@@ -229,7 +239,8 @@ export async function notifyNewBooking(
   employeePhone?: string
 ): Promise<boolean> {
   const message = await buildBookingNotificationMessage(pickupLocation, destination, bookingTime, employeeName, employeePhone);
-  return sendWhatsAppGroupNotification(message);
+  const group = await getGroupByType('BOOKING');
+  return sendWhatsAppGroupNotification(message, group);
 }
 
 /**
@@ -292,19 +303,4 @@ export async function notifyBookingCompleted(
 
   const message = await buildBookingCompletedMessage(driverName, pickupLocation, destination);
   return sendWhatsAppToNumber(phoneNumber, message);
-}
-
-/**
- * Send journey completion notification to WhatsApp group (uses DB template or default)
- */
-export async function notifyJourneyCompleted(
-  driverName: string,
-  pickupLocation: string,
-  destination: string
-): Promise<boolean> {
-  const variables: Record<string, string> = { driverName, pickupLocation, destination };
-  const dbTemplate = await getWhatsAppTemplate('JOURNEY_COMPLETED');
-  const template = dbTemplate || DEFAULT_TEMPLATES.JOURNEY_COMPLETED;
-  const message = formatTemplate(template, variables);
-  return sendWhatsAppGroupNotification(message);
 }

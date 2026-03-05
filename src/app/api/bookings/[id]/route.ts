@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { BookingStatus, VehicleStatus, DriverStatus } from '@prisma/client';
-import { notifyBookingAccepted, notifyBookingCompleted, notifyJourneyCompleted } from '@/lib/whatsapp-notification';
+import { notifyBookingAccepted, notifyBookingCompleted } from '@/lib/whatsapp-notification';
 import { pushNotifyBookingAccepted, pushNotifyBookingCompleted } from '@/lib/push-notification';
 import { verifyToken } from '@/lib/auth-utils';
 
@@ -349,13 +349,6 @@ export async function PUT(
         // Notify employee about completion
         await notifyBookingCompleted(
           updatedBooking.employee.phone as string,
-          updatedBooking.driver.name,
-          updatedBooking.pickupLocation,
-          updatedBooking.destination
-        );
-        
-        // Also notify driver group about completion
-        await notifyJourneyCompleted(
           updatedBooking.driver.name,
           updatedBooking.pickupLocation,
           updatedBooking.destination

@@ -22,6 +22,7 @@ interface WhatsAppRoute {
   id: string;
   name: string;
   groupId: string;
+  type: string;
   description?: string;
   isActive: boolean;
   createdAt: string;
@@ -47,7 +48,9 @@ const TEMPLATE_TYPES = [
   {
     value: 'BOOKING',
     label: 'Pesanan Baru',
-    description: 'Dikirim ke grup driver saat karyawan membuat pesanan baru',
+    sendMode: 'group' as const,
+    sendModeLabel: '📢 Ke Grup Driver',
+    description: 'Dikirim ke grup WhatsApp driver saat karyawan membuat pesanan baru',
     placeholders: [
       { key: '{pickupLocation}', desc: 'Lokasi jemput' },
       { key: '{destination}', desc: 'Tujuan' },
@@ -70,7 +73,9 @@ Segera cek aplikasi: {appUrl}`,
   {
     value: 'ACCEPTED',
     label: 'Pesanan Diterima',
-    description: 'Dikirim ke karyawan saat driver menerima pesanan',
+    sendMode: 'individual' as const,
+    sendModeLabel: '📱 Ke Nomor Karyawan',
+    description: 'Dikirim langsung ke nomor HP karyawan saat driver menerima pesanan',
     placeholders: [
       { key: '{driverName}', desc: 'Nama driver' },
       { key: '{appUrl}', desc: 'URL aplikasi' },
@@ -84,7 +89,9 @@ Periksa aplikasi untuk memantau perjalanan: {appUrl}`,
   {
     value: 'COMPLETED',
     label: 'Perjalanan Selesai',
-    description: 'Dikirim ke karyawan saat perjalanan selesai',
+    sendMode: 'individual' as const,
+    sendModeLabel: '📱 Ke Nomor Karyawan',
+    description: 'Dikirim langsung ke nomor HP karyawan saat perjalanan selesai',
     placeholders: [
       { key: '{driverName}', desc: 'Nama driver' },
       { key: '{pickupLocation}', desc: 'Lokasi jemput' },
@@ -101,24 +108,11 @@ Driver: {driverName}
 Silakan berikan rating di aplikasi: {appUrl}`,
   },
   {
-    value: 'JOURNEY_COMPLETED',
-    label: 'Perjalanan Selesai (Grup)',
-    description: 'Dikirim ke grup driver saat perjalanan selesai',
-    placeholders: [
-      { key: '{driverName}', desc: 'Nama driver' },
-      { key: '{pickupLocation}', desc: 'Lokasi jemput' },
-      { key: '{destination}', desc: 'Tujuan' },
-    ],
-    defaultContent: `🎉 Perjalanan Selesai!
-
-Driver: {driverName}
-📍 Dari: {pickupLocation}
-📍 Ke: {destination}`,
-  },
-  {
     value: 'CANCELLED',
     label: 'Pesanan Dibatalkan',
-    description: 'Dikirim saat pesanan dibatalkan',
+    sendMode: 'individual' as const,
+    sendModeLabel: '📱 Ke Nomor Karyawan',
+    description: 'Dikirim ke nomor HP karyawan saat pesanan dibatalkan',
     placeholders: [
       { key: '{cancellationReason}', desc: 'Alasan pembatalan' },
       { key: '{cancelledTime}', desc: 'Waktu pembatalan' },
@@ -133,7 +127,9 @@ Silakan hubungi admin jika ada pertanyaan.`,
   {
     value: 'REMINDER',
     label: 'Pengingat',
-    description: 'Pesan pengingat pesanan',
+    sendMode: 'individual' as const,
+    sendModeLabel: '📱 Ke Nomor Karyawan',
+    description: 'Pesan pengingat ke nomor HP karyawan',
     placeholders: [
       { key: '{pickupLocation}', desc: 'Lokasi jemput' },
       { key: '{destination}', desc: 'Tujuan' },
@@ -151,6 +147,8 @@ Harap siap tepat waktu. Hubungi kami jika ada perubahan.`,
   {
     value: 'OTHER',
     label: 'Lainnya',
+    sendMode: 'individual' as const,
+    sendModeLabel: '📱 Ke Nomor',
     description: 'Template kustom',
     placeholders: [],
     defaultContent: '',
@@ -172,6 +170,7 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
 
   const [routeName, setRouteName] = useState('');
   const [groupId, setGroupId] = useState('');
+  const [routeType, setRouteType] = useState('BOOKING');
   const [routeDescription, setRouteDescription] = useState('');
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
@@ -263,6 +262,7 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
           body: JSON.stringify({
             name: routeName,
             groupId,
+            type: routeType,
             description: routeDescription,
           }),
         },
@@ -272,6 +272,7 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
       setRoutes([result, ...routes]);
       setRouteName('');
       setGroupId('');
+      setRouteType('BOOKING');
       setRouteDescription('');
       showMessage('Route added successfully', 'success');
     } catch (error) {
@@ -291,6 +292,7 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
           body: JSON.stringify({
             name: routeName,
             groupId,
+            type: routeType,
             description: routeDescription,
           }),
         },
@@ -300,6 +302,7 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
       setRoutes(routes.map((r) => (r.id === editingRouteId ? result : r)));
       setRouteName('');
       setGroupId('');
+      setRouteType('BOOKING');
       setRouteDescription('');
       setEditingRouteId(null);
       showMessage('Route updated successfully', 'success');
@@ -312,6 +315,7 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
   const handleEditRoute = (route: WhatsAppRoute) => {
     setRouteName(route.name);
     setGroupId(route.groupId);
+    setRouteType(route.type || 'BOOKING');
     setRouteDescription(route.description || '');
     setEditingRouteId(route.id);
   };
@@ -413,6 +417,7 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
   const handleCancelEdit = () => {
     setRouteName('');
     setGroupId('');
+    setRouteType('BOOKING');
     setRouteDescription('');
     setEditingRouteId(null);
     setTemplateName('');
@@ -574,19 +579,37 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
         <TabsContent value="routes">
           <Card>
             <CardHeader>
-              <CardTitle>WhatsApp Routes/Groups</CardTitle>
+              <CardTitle>Tujuan Grup WhatsApp</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Atur grup WhatsApp tujuan untuk notifikasi bertipe <strong>grup</strong>. Saat ini hanya tipe &quot;Pesanan Baru&quot; yang dikirim ke grup. Notifikasi lainnya (Diterima, Selesai, dll) dikirim langsung ke nomor HP karyawan.
+              </p>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Info box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm space-y-2">
+                <p className="font-semibold text-blue-800">📋 Tipe Pengiriman Notifikasi</p>
+                <div className="grid grid-cols-1 gap-1 text-blue-700">
+                  {TEMPLATE_TYPES.filter((t) => t.value !== 'OTHER').map((t) => (
+                    <div key={t.value} className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.sendMode === 'group' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {t.sendModeLabel}
+                      </span>
+                      <span>{t.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-4 border-b pb-6">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Plus className="w-4 h-4" />
-                  {editingRouteId ? 'Edit Route' : 'Add New Route'}
+                  {editingRouteId ? 'Edit Route Grup' : 'Tambah Route Grup'}
                 </h3>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Route Name</label>
+                  <label className="block text-sm font-medium mb-1">Nama Route</label>
                   <Input
-                    placeholder="e.g., Driver Group, Employee Group"
+                    placeholder="contoh: Grup Driver Balikpapan"
                     value={routeName}
                     onChange={(e) => setRouteName(e.target.value)}
                   />
@@ -595,17 +618,31 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
                 <div>
                   <label className="block text-sm font-medium mb-1">Group ID</label>
                   <Input
-                    placeholder="e.g., WAGDriver"
+                    placeholder="contoh: WAGDriver"
                     value={groupId}
                     onChange={(e) => setGroupId(e.target.value)}
                   />
-                  <p className="text-xs text-gray-500 mt-1">WhatsApp group identifier</p>
+                  <p className="text-xs text-gray-500 mt-1">Nama grup WhatsApp yang terdaftar di WACenter</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Description (Optional)</label>
+                  <label className="block text-sm font-medium mb-1">Tipe Notifikasi</label>
+                  <select
+                    value={routeType}
+                    onChange={(e) => setRouteType(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md"
+                  >
+                    {TEMPLATE_TYPES.filter((t) => t.sendMode === 'group').map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">ℹ️ Hanya tipe notifikasi yang dikirim ke grup yang bisa dikonfigurasi di sini</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Deskripsi (Opsional)</label>
                   <Input
-                    placeholder="e.g., Group for driver notifications"
+                    placeholder="contoh: Grup untuk notifikasi driver"
                     value={routeDescription}
                     onChange={(e) => setRouteDescription(e.target.value)}
                   />
@@ -616,7 +653,7 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
                     onClick={editingRouteId ? handleUpdateRoute : handleAddRoute}
                     className="flex-1 bg-green-600 hover:bg-green-700"
                   >
-                    {editingRouteId ? 'Update Route' : 'Add Route'}
+                    {editingRouteId ? 'Simpan Perubahan' : 'Tambah Route'}
                   </Button>
                   {editingRouteId && (
                     <Button
@@ -624,46 +661,58 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
                       variant="outline"
                       className="flex-1"
                     >
-                      Cancel
+                      Batal
                     </Button>
                   )}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <h3 className="font-semibold">Routes List</h3>
+                <h3 className="font-semibold">Daftar Route Grup</h3>
                 {routes.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No routes configured yet.</p>
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm mb-2">Belum ada route yang dikonfigurasi.</p>
+                    <p className="text-xs">Notifikasi pesanan baru akan dikirim ke grup default &quot;WAGDriver&quot;.</p>
+                  </div>
                 ) : (
                   <div className="space-y-2">
-                    {routes.map((route) => (
-                      <div key={route.id} className="border rounded p-3 flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="font-medium">{route.name}</p>
-                          <p className="text-sm text-gray-600">Group ID: {route.groupId}</p>
-                          {route.description && (
-                            <p className="text-sm text-gray-500 mt-1">{route.description}</p>
-                          )}
+                    {routes.map((route) => {
+                      const typeInfo = TEMPLATE_TYPES.find((t) => t.value === route.type);
+                      return (
+                        <div key={route.id} className="border rounded p-3 flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{route.name}</p>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${route.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {route.isActive ? '✓ Aktif' : 'Nonaktif'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">Group ID: <span className="font-mono">{route.groupId}</span></p>
+                            <p className="text-xs text-purple-600">📢 {typeInfo?.label || route.type} — ke grup</p>
+                            {route.description && (
+                              <p className="text-sm text-gray-500 mt-1">{route.description}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditRoute(route)}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteRoute(route.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditRoute(route)}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteRoute(route.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -708,7 +757,12 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
                     ))}
                   </select>
                   {currentTypeInfo?.description && (
-                    <p className="text-xs text-gray-500 mt-1">ℹ️ {currentTypeInfo.description}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${currentTypeInfo.sendMode === 'group' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {currentTypeInfo.sendModeLabel}
+                      </span>
+                      <p className="text-xs text-gray-500">{currentTypeInfo.description}</p>
+                    </div>
                   )}
                 </div>
 
@@ -821,9 +875,11 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
                                   {template.isActive ? '✓ Aktif' : 'Nonaktif'}
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-500">
-                                Tipe: {typeInfo?.label || template.type}
-                                {typeInfo?.description && ` — ${typeInfo.description}`}
+                              <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                                <span className={`px-1.5 py-0.5 rounded-full font-medium ${typeInfo?.sendMode === 'group' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                  {typeInfo?.sendModeLabel || template.type}
+                                </span>
+                                {typeInfo?.label || template.type}
                               </p>
                             </div>
                             <div className="flex gap-1">

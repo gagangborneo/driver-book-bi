@@ -168,6 +168,7 @@ model WhatsAppRoute {
   id          String   @id @default(cuid())
   name        String   @unique
   groupId     String
+  type        String   @default("BOOKING") // BOOKING, ACCEPTED, COMPLETED, JOURNEY_COMPLETED, CANCELLED, REMINDER, OTHER
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())

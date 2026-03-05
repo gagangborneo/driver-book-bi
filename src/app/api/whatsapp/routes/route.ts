@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, groupId, description, isActive } = body;
+    const { name, groupId, type, description, isActive } = body;
 
     if (!name || !groupId) {
       return NextResponse.json(
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         groupId,
+        type: type || 'BOOKING',
         description,
         isActive: isActive !== undefined ? isActive : true,
       },
