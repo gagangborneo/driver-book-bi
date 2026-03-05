@@ -189,24 +189,47 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [configData, routesData, templatesData] = await Promise.all([
+      const errors: string[] = [];
+
+      // Load each data source independently so one failure doesn't block the rest
+      const [configResult, routesResult, templatesResult] = await Promise.allSettled([
         api('/whatsapp/config', {}, token),
         api('/whatsapp/routes', {}, token),
         api('/whatsapp/templates', {}, token),
       ]);
 
-      setConfig(configData);
-      if (configData) {
-        setDeviceId(configData.deviceId);
-        setApiUrl(configData.apiUrl);
-        setConfigActive(configData.isActive);
+      if (configResult.status === 'fulfilled') {
+        setConfig(configResult.value);
+        if (configResult.value) {
+          setDeviceId(configResult.value.deviceId);
+          setApiUrl(configResult.value.apiUrl);
+          setConfigActive(configResult.value.isActive);
+        }
+      } else {
+        console.error('Error loading config:', configResult.reason);
+        errors.push('Konfigurasi');
       }
 
-      setRoutes(routesData);
-      setTemplates(templatesData);
+      if (routesResult.status === 'fulfilled') {
+        setRoutes(Array.isArray(routesResult.value) ? routesResult.value : []);
+      } else {
+        console.error('Error loading routes:', routesResult.reason);
+        errors.push('Routes');
+      }
+
+      if (templatesResult.status === 'fulfilled') {
+        setTemplates(Array.isArray(templatesResult.value) ? templatesResult.value : []);
+      } else {
+        console.error('Error loading templates:', templatesResult.reason);
+        errors.push('Templates');
+      }
+
+      if (errors.length > 0) {
+        showMessage(`Gagal memuat: ${errors.join(', ')}. Pastikan migrasi database sudah dijalankan.`, 'error');
+      }
     } catch (error) {
       console.error('Error loading WhatsApp settings:', error);
-      showMessage('Failed to load settings', 'error');
+      showMessage('Gagal memuat pengaturan. Periksa koneksi dan migrasi database.', 'error');
     } finally {
       setIsLoading(false);
     }
