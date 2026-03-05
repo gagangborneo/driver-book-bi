@@ -1,15 +1,12 @@
 /**
  * WhatsApp Notification Utility
  * Handles sending notifications to WhatsApp groups via WACenter API
+ * Templates are fetched from the database (admin-editable).
+ * Falls back to hardcoded defaults if no DB template is found.
  */
 
 import { db } from '@/lib/db';
-
-interface SendWhatsAppGroupParams {
-  message: string;
-  group?: string;
-  deviceId?: string;
-}
+import { formatTemplate } from '@/lib/whatsapp-templates';
 
 /**
  * Get WhatsApp configuration from database
@@ -93,28 +90,82 @@ function formatPhoneForWaLink(phone: string): string {
 }
 
 /**
- * Build booking notification message
+ * Fetch an active WhatsApp template from the database by type.
+ * Returns null if not found or inactive.
  */
-export function buildBookingNotificationMessage(
+async function getWhatsAppTemplate(type: string): Promise<string | null> {
+  try {
+    const template = await db.whatsAppTemplate.findFirst({
+      where: { type, isActive: true },
+    });
+    return template?.content || null;
+  } catch (error) {
+    console.error(`Error fetching WhatsApp template (${type}):`, error);
+    return null;
+  }
+}
+
+// ─── Default hardcoded templates (fallback when no DB template exists) ───
+
+const DEFAULT_TEMPLATES = {
+  BOOKING: `🚗 Pesanan Driver Baru Masuk!
+
+📍 Jemput: {pickupLocation}
+📍 Tujuan: {destination}
+⏰ Waktu: {bookingTime}
+👤 Pemesan: {employeeName}
+📞 HP: {employeePhone} ({waLink})
+
+Segera cek aplikasi: {appUrl}`,
+
+  ACCEPTED: `✅ Pesanan Diterima!
+
+Driver: {driverName}
+
+Periksa aplikasi untuk memantau perjalanan: {appUrl}`,
+
+  COMPLETED: `✅ Perjalanan Selesai!
+
+Driver: {driverName}
+
+📍 Dari: {pickupLocation}
+📍 Ke: {destination}
+
+Silakan berikan rating di aplikasi: {appUrl}`,
+
+  JOURNEY_COMPLETED: `🎉 Perjalanan Selesai!
+
+Driver: {driverName}
+📍 Dari: {pickupLocation}
+📍 Ke: {destination}`,
+};
+
+/**
+ * Build booking notification message (uses DB template or default)
+ */
+export async function buildBookingNotificationMessage(
   pickupLocation: string,
   destination: string,
   bookingTime: string,
   employeeName?: string,
   employeePhone?: string,
   appUrl: string = 'https://lamin-bpp.web.id/'
-): string {
-  const phoneLink = employeePhone ? `https://wa.me/${formatPhoneForWaLink(employeePhone)}` : null;
-  const employeeInfo = employeeName
-    ? `\n👤 Pemesan: ${employeeName}${phoneLink ? `\n📞 HP: ${employeePhone} (${phoneLink})` : ''}\n`
-    : '';
+): Promise<string> {
+  const waLink = employeePhone ? `https://wa.me/${formatPhoneForWaLink(employeePhone)}` : '-';
 
-  return `🚗 Pesanan Driver Baru Masuk!
+  const variables: Record<string, string> = {
+    pickupLocation,
+    destination,
+    bookingTime,
+    employeeName: employeeName || '-',
+    employeePhone: employeePhone || '-',
+    waLink,
+    appUrl,
+  };
 
-📍 Jemput: ${pickupLocation}
-📍 Tujuan: ${destination}
-⏰ Waktu: ${bookingTime}
-${employeeInfo}
-Segera cek aplikasi: ${appUrl}`;
+  const dbTemplate = await getWhatsAppTemplate('BOOKING');
+  const template = dbTemplate || DEFAULT_TEMPLATES.BOOKING;
+  return formatTemplate(template, variables);
 }
 
 /**
@@ -177,22 +228,21 @@ export async function notifyNewBooking(
   employeeName?: string,
   employeePhone?: string
 ): Promise<boolean> {
-  const message = buildBookingNotificationMessage(pickupLocation, destination, bookingTime, employeeName, employeePhone);
+  const message = await buildBookingNotificationMessage(pickupLocation, destination, bookingTime, employeeName, employeePhone);
   return sendWhatsAppGroupNotification(message);
 }
 
 /**
- * Build booking accepted message
+ * Build booking accepted message (uses DB template or default)
  */
-export function buildBookingAcceptedMessage(
+export async function buildBookingAcceptedMessage(
   driverName: string,
   appUrl: string = 'https://lamin-bpp.web.id/'
-): string {
-  return `✅ Pesanan Diterima!
-
-Driver: ${driverName}
-
-Periksa aplikasi untuk memantau perjalanan: ${appUrl}`;
+): Promise<string> {
+  const variables: Record<string, string> = { driverName, appUrl };
+  const dbTemplate = await getWhatsAppTemplate('ACCEPTED');
+  const template = dbTemplate || DEFAULT_TEMPLATES.ACCEPTED;
+  return formatTemplate(template, variables);
 }
 
 /**
@@ -207,27 +257,23 @@ export async function notifyBookingAccepted(
     return false;
   }
 
-  const message = buildBookingAcceptedMessage(driverName);
+  const message = await buildBookingAcceptedMessage(driverName);
   return sendWhatsAppToNumber(phoneNumber, message);
 }
 
 /**
- * Build booking completed message
+ * Build booking completed message (uses DB template or default)
  */
-export function buildBookingCompletedMessage(
+export async function buildBookingCompletedMessage(
   driverName: string,
   pickupLocation: string,
   destination: string,
   appUrl: string = 'https://lamin-bpp.web.id/'
-): string {
-  return `✅ Perjalanan Selesai!
-
-Driver: ${driverName}
-
-📍 Dari: ${pickupLocation}
-📍 Ke: ${destination}
-
-Silakan berikan rating di aplikasi: ${appUrl}`;
+): Promise<string> {
+  const variables: Record<string, string> = { driverName, pickupLocation, destination, appUrl };
+  const dbTemplate = await getWhatsAppTemplate('COMPLETED');
+  const template = dbTemplate || DEFAULT_TEMPLATES.COMPLETED;
+  return formatTemplate(template, variables);
 }
 
 /**
@@ -244,23 +290,21 @@ export async function notifyBookingCompleted(
     return false;
   }
 
-  const message = buildBookingCompletedMessage(driverName, pickupLocation, destination);
+  const message = await buildBookingCompletedMessage(driverName, pickupLocation, destination);
   return sendWhatsAppToNumber(phoneNumber, message);
 }
 
 /**
- * Send journey completion notification to WhatsApp group
+ * Send journey completion notification to WhatsApp group (uses DB template or default)
  */
 export async function notifyJourneyCompleted(
   driverName: string,
   pickupLocation: string,
   destination: string
 ): Promise<boolean> {
-  const message = `🎉 Perjalanan Selesai!
-
-Driver: ${driverName}
-📍 Dari: ${pickupLocation}
-📍 Ke: ${destination}`;
-  
+  const variables: Record<string, string> = { driverName, pickupLocation, destination };
+  const dbTemplate = await getWhatsAppTemplate('JOURNEY_COMPLETED');
+  const template = dbTemplate || DEFAULT_TEMPLATES.JOURNEY_COMPLETED;
+  const message = formatTemplate(template, variables);
   return sendWhatsAppGroupNotification(message);
 }

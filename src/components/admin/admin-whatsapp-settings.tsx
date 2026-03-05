@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Trash2, Plus, Edit2, Check, X } from 'lucide-react';
+import { Trash2, Plus, Edit2, Check, X, RotateCcw, Eye, EyeOff } from 'lucide-react';
 
 interface WhatsAppConfig {
   id: string;
@@ -42,6 +42,121 @@ interface AdminWhatsAppSettingsProps {
   token: string;
 }
 
+// Template type metadata with available placeholders and defaults
+const TEMPLATE_TYPES = [
+  {
+    value: 'BOOKING',
+    label: 'Pesanan Baru',
+    description: 'Dikirim ke grup driver saat karyawan membuat pesanan baru',
+    placeholders: [
+      { key: '{pickupLocation}', desc: 'Lokasi jemput' },
+      { key: '{destination}', desc: 'Tujuan' },
+      { key: '{bookingTime}', desc: 'Waktu jemput' },
+      { key: '{employeeName}', desc: 'Nama karyawan' },
+      { key: '{employeePhone}', desc: 'No HP karyawan' },
+      { key: '{waLink}', desc: 'Link wa.me/ karyawan' },
+      { key: '{appUrl}', desc: 'URL aplikasi' },
+    ],
+    defaultContent: `🚗 Pesanan Driver Baru Masuk!
+
+📍 Jemput: {pickupLocation}
+📍 Tujuan: {destination}
+⏰ Waktu: {bookingTime}
+👤 Pemesan: {employeeName}
+📞 HP: {employeePhone} ({waLink})
+
+Segera cek aplikasi: {appUrl}`,
+  },
+  {
+    value: 'ACCEPTED',
+    label: 'Pesanan Diterima',
+    description: 'Dikirim ke karyawan saat driver menerima pesanan',
+    placeholders: [
+      { key: '{driverName}', desc: 'Nama driver' },
+      { key: '{appUrl}', desc: 'URL aplikasi' },
+    ],
+    defaultContent: `✅ Pesanan Diterima!
+
+Driver: {driverName}
+
+Periksa aplikasi untuk memantau perjalanan: {appUrl}`,
+  },
+  {
+    value: 'COMPLETED',
+    label: 'Perjalanan Selesai',
+    description: 'Dikirim ke karyawan saat perjalanan selesai',
+    placeholders: [
+      { key: '{driverName}', desc: 'Nama driver' },
+      { key: '{pickupLocation}', desc: 'Lokasi jemput' },
+      { key: '{destination}', desc: 'Tujuan' },
+      { key: '{appUrl}', desc: 'URL aplikasi' },
+    ],
+    defaultContent: `✅ Perjalanan Selesai!
+
+Driver: {driverName}
+
+📍 Dari: {pickupLocation}
+📍 Ke: {destination}
+
+Silakan berikan rating di aplikasi: {appUrl}`,
+  },
+  {
+    value: 'JOURNEY_COMPLETED',
+    label: 'Perjalanan Selesai (Grup)',
+    description: 'Dikirim ke grup driver saat perjalanan selesai',
+    placeholders: [
+      { key: '{driverName}', desc: 'Nama driver' },
+      { key: '{pickupLocation}', desc: 'Lokasi jemput' },
+      { key: '{destination}', desc: 'Tujuan' },
+    ],
+    defaultContent: `🎉 Perjalanan Selesai!
+
+Driver: {driverName}
+📍 Dari: {pickupLocation}
+📍 Ke: {destination}`,
+  },
+  {
+    value: 'CANCELLED',
+    label: 'Pesanan Dibatalkan',
+    description: 'Dikirim saat pesanan dibatalkan',
+    placeholders: [
+      { key: '{cancellationReason}', desc: 'Alasan pembatalan' },
+      { key: '{cancelledTime}', desc: 'Waktu pembatalan' },
+    ],
+    defaultContent: `❌ Pesanan Dibatalkan
+
+Alasan: {cancellationReason}
+Waktu: {cancelledTime}
+
+Silakan hubungi admin jika ada pertanyaan.`,
+  },
+  {
+    value: 'REMINDER',
+    label: 'Pengingat',
+    description: 'Pesan pengingat pesanan',
+    placeholders: [
+      { key: '{pickupLocation}', desc: 'Lokasi jemput' },
+      { key: '{destination}', desc: 'Tujuan' },
+      { key: '{bookingTime}', desc: 'Waktu jemput' },
+    ],
+    defaultContent: `⏰ Pengingat Pesanan
+
+Pesanan Anda dijadwalkan:
+📍 Dari: {pickupLocation}
+📍 Ke: {destination}
+⏰ Waktu: {bookingTime}
+
+Harap siap tepat waktu. Hubungi kami jika ada perubahan.`,
+  },
+  {
+    value: 'OTHER',
+    label: 'Lainnya',
+    description: 'Template kustom',
+    placeholders: [],
+    defaultContent: '',
+  },
+];
+
 export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
   const [config, setConfig] = useState<WhatsAppConfig | null>(null);
   const [routes, setRoutes] = useState<WhatsAppRoute[]>([]);
@@ -64,6 +179,8 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
   const [templateType, setTemplateType] = useState('BOOKING');
   const [templateContent, setTemplateContent] = useState('');
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load initial data
   useEffect(() => {
@@ -302,7 +419,64 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
     setTemplateType('BOOKING');
     setTemplateContent('');
     setEditingTemplateId(null);
+    setShowPreview(false);
   };
+
+  // Insert placeholder at cursor position in textarea
+  const insertPlaceholder = (placeholder: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setTemplateContent((prev) => prev + placeholder);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newContent = templateContent.substring(0, start) + placeholder + templateContent.substring(end);
+    setTemplateContent(newContent);
+    // Restore focus and move cursor after inserted placeholder
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + placeholder.length;
+    }, 0);
+  };
+
+  // Load default template content for current type
+  const loadDefaultTemplate = () => {
+    const typeInfo = TEMPLATE_TYPES.find((t) => t.value === templateType);
+    if (typeInfo?.defaultContent) {
+      setTemplateContent(typeInfo.defaultContent);
+      if (!templateName.trim()) {
+        setTemplateName(typeInfo.label);
+      }
+    }
+  };
+
+  // Generate preview by replacing placeholders with example values
+  const getPreviewContent = () => {
+    const exampleValues: Record<string, string> = {
+      '{pickupLocation}': 'Kantor BI Balikpapan',
+      '{destination}': 'Bandara Sultan Aji Muhammad Sulaiman',
+      '{bookingTime}': '08:30',
+      '{employeeName}': 'Ahmad Fauzi',
+      '{employeePhone}': '085175446620',
+      '{waLink}': 'https://wa.me/6285175446620',
+      '{appUrl}': 'https://lamin-bpp.web.id/',
+      '{driverName}': 'Pak Budi',
+      '{cancellationReason}': 'Perubahan jadwal',
+      '{cancelledTime}': '07:15',
+      '{vehiclePlateNo}': 'KT 1234 AB',
+      '{status}': 'Disetujui',
+      '{completedTime}': '10:45',
+    };
+    let preview = templateContent;
+    Object.entries(exampleValues).forEach(([key, val]) => {
+      preview = preview.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), val);
+    });
+    return preview;
+  };
+
+  // Get current template type metadata
+  const currentTypeInfo = TEMPLATE_TYPES.find((t) => t.value === templateType);
 
   if (isLoading) {
     return (
@@ -501,60 +675,118 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
         <TabsContent value="templates">
           <Card>
             <CardHeader>
-              <CardTitle>Message Templates</CardTitle>
+              <CardTitle>Template Pesan WhatsApp</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Template yang aktif akan digunakan saat mengirim notifikasi WhatsApp. Jika tidak ada template aktif untuk suatu tipe, sistem akan menggunakan template bawaan.
+              </p>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4 border-b pb-6">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Plus className="w-4 h-4" />
-                  {editingTemplateId ? 'Edit Template' : 'Add New Template'}
+                  {editingTemplateId ? 'Edit Template' : 'Tambah Template Baru'}
                 </h3>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Template Name</label>
+                  <label className="block text-sm font-medium mb-1">Nama Template</label>
                   <Input
-                    placeholder="e.g., New Booking Notification"
+                    placeholder="contoh: Notifikasi Pesanan Baru"
                     value={templateName}
                     onChange={(e) => setTemplateName(e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Template Type</label>
+                  <label className="block text-sm font-medium mb-1">Tipe Template</label>
                   <select
                     value={templateType}
                     onChange={(e) => setTemplateType(e.target.value)}
                     className="w-full px-3 py-2 border rounded-md"
                   >
-                    <option value="BOOKING">Booking New</option>
-                    <option value="ACCEPTED">Booking Accepted</option>
-                    <option value="COMPLETED">Booking Completed</option>
-                    <option value="CANCELLED">Booking Cancelled</option>
-                    <option value="REMINDER">Reminder</option>
-                    <option value="OTHER">Other</option>
+                    {TEMPLATE_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
                   </select>
+                  {currentTypeInfo?.description && (
+                    <p className="text-xs text-gray-500 mt-1">ℹ️ {currentTypeInfo.description}</p>
+                  )}
                 </div>
 
+                {/* Available placeholders */}
+                {currentTypeInfo && currentTypeInfo.placeholders.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Variabel yang Tersedia</label>
+                    <p className="text-xs text-gray-500 mb-2">Klik untuk menyisipkan ke pesan:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {currentTypeInfo.placeholders.map((p) => (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => insertPlaceholder(p.key)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+                          title={p.desc}
+                        >
+                          <span className="font-mono">{p.key}</span>
+                          <span className="text-blue-400">— {p.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-sm font-medium mb-1">Message Content</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium">Isi Pesan</label>
+                    <div className="flex gap-2">
+                      {currentTypeInfo?.defaultContent && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={loadDefaultTemplate}
+                          className="text-xs h-7"
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" />
+                          Isi Default
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPreview(!showPreview)}
+                        className="text-xs h-7"
+                      >
+                        {showPreview ? <EyeOff className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
+                        {showPreview ? 'Tutup Preview' : 'Preview'}
+                      </Button>
+                    </div>
+                  </div>
                   <textarea
-                    placeholder="e.g., 🚗 Pesanan Driver Baru Masuk!&#10;&#10;📍 Jemput: {pickupLocation}&#10;📍 Tujuan: {destination}&#10;⏰ Waktu: {bookingTime}&#10;&#10;Segera cek aplikasi: {appUrl}"
+                    ref={textareaRef}
+                    placeholder="Tulis pesan template di sini... Gunakan variabel seperti {pickupLocation} yang akan diganti otomatis."
                     value={templateContent}
                     onChange={(e) => setTemplateContent(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-md min-h-32 font-mono text-sm"
+                    className="w-full px-3 py-2 border rounded-md min-h-40 font-mono text-sm"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Use placeholders like {'{pickupLocation}'}, {'{destination}'}, {'{bookingTime}'}, {'{appUrl}'}, {'{driverName}'},
-                    etc.
-                  </p>
                 </div>
+
+                {/* Live Preview */}
+                {showPreview && templateContent && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">📱 Preview Pesan (dengan data contoh)</label>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 whitespace-pre-wrap text-sm font-sans">
+                      {getPreviewContent()}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-2">
                   <Button
                     onClick={editingTemplateId ? handleUpdateTemplate : handleAddTemplate}
                     className="flex-1 bg-green-600 hover:bg-green-700"
                   >
-                    {editingTemplateId ? 'Update Template' : 'Add Template'}
+                    {editingTemplateId ? 'Simpan Perubahan' : 'Tambah Template'}
                   </Button>
                   {editingTemplateId && (
                     <Button
@@ -562,48 +794,62 @@ export function AdminWhatsAppSettings({ token }: AdminWhatsAppSettingsProps) {
                       variant="outline"
                       className="flex-1"
                     >
-                      Cancel
+                      Batal
                     </Button>
                   )}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <h3 className="font-semibold">Templates List</h3>
+                <h3 className="font-semibold">Daftar Template</h3>
                 {templates.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No templates configured yet.</p>
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm mb-2">Belum ada template yang dibuat.</p>
+                    <p className="text-xs">Sistem akan menggunakan template bawaan. Tambahkan template untuk mengkustomisasi pesan.</p>
+                  </div>
                 ) : (
                   <div className="space-y-2">
-                    {templates.map((template) => (
-                      <div key={template.id} className="border rounded p-3 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium">{template.name}</p>
-                            <p className="text-xs text-gray-500">Type: {template.type}</p>
+                    {templates.map((template) => {
+                      const typeInfo = TEMPLATE_TYPES.find((t) => t.value === template.type);
+                      return (
+                        <div key={template.id} className="border rounded p-3 space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{template.name}</p>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${template.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                  {template.isActive ? '✓ Aktif' : 'Nonaktif'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                Tipe: {typeInfo?.label || template.type}
+                                {typeInfo?.description && ` — ${typeInfo.description}`}
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditTemplate(template)}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteTemplate(template.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditTemplate(template)}
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDeleteTemplate(template.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
+                          <p className="text-sm bg-gray-50 p-2 rounded whitespace-pre-wrap break-words font-mono">
+                            {template.content}
+                          </p>
                         </div>
-                        <p className="text-sm bg-gray-50 p-2 rounded whitespace-pre-wrap break-words">
-                          {template.content}
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
